@@ -1,0 +1,1 @@
+class ModelList extends detox.widget.Widget {}
