@@ -11,6 +11,11 @@ using Detox;
 
 class DBAdminController extends Controller
 {
+    static var models:Array<Class<Dynamic>> = [
+        ufcommon.model.User,
+        app.school.model.School
+    ];
+
     static public function addRoutes(routes:RouteCollection, ?prefix:String = "/dbadmin/")
     {
     	routes
@@ -23,7 +28,8 @@ class DBAdminController extends Controller
     public function index() 
     {
         checkTableExists();
-        var view = "<h1>Database Admin goes here!</h1>".parse();
+        var view = new DBAdminView();
+        view.loop.addList(Lambda.map(models, function (t) { return Type.getClassName(t); }));
         return new DetoxResult(view);
     }
 
@@ -41,14 +47,9 @@ class DBAdminController extends Controller
 
     function checkTableExists()
     {
-        HxDatabaseState.manager.search(true,{ limit : 1 });
-        // try 
-        // {
-        // }
-        // catch (e:Dynamic)
-        // {
-        //     trace 
-        // }
-
+        if ( !sys.db.TableCreate.exists(HxDatabaseState.manager) )
+        {
+            sys.db.TableCreate.create(HxDatabaseState.manager);
+        }
     }
 }
