@@ -1,11 +1,17 @@
 package ufcommon.sys.db;
 
+import ufcommon.sys.db.Types;
 
 #if (neko || php || cpp)
-	typedef Object = sys.db.Object;
+	class Object extends sys.db.Object
+	{
+		public var id:SId;
+	}
 #else 
 	class Object implements haxe.rtti.Infos
 	{
+		public var id:SId;
+
 		public function new() {}
 		
 		// Currently not implemented, but we should...
