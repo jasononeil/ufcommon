@@ -1,12 +1,11 @@
 package ufcommon.model;
 
-import ufcommon.sys.Object;
-import ufcommon.sys.Types;
+import ufcommon.sys.db.Object;
+import ufcommon.sys.db.Types;
 
 interface IUser
 {
 	// Fields in the object
-    var id:SId;
 	var username:SString<20>;
 
 	// Methods that are implemented:
@@ -18,7 +17,6 @@ interface IUser
 #if server 
 class User extends Object, implements IUser
 {
-	public var id:SId;
 	public var username:SString<20>;
 	public var salt:SString<32>;
 	public var password:SString<32>;
@@ -48,7 +46,6 @@ typedef User = SafeUser;
 /** UserSafe is a version of the User model that is safe to use on the client side - it does not store sensitive data. */
 class SafeUser extends Object, implements IUser
 {
-	public var id:SId;
 	public var username:SString<20>;
 
 	public function new(?u:User)

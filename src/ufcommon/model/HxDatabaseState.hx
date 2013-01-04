@@ -1,11 +1,10 @@
 package ufcommon.model;
 
-import ufcommon.sys.Object;
-import ufcommon.sys.Types;
+import ufcommon.sys.db.Object;
+import ufcommon.sys.db.Types;
 
 class HxDatabaseState extends Object
 {
-	public var id:SId;
 	public var table:SString<255>;
 	public var action:SString<255>;
 	public var date:SDateTime;
