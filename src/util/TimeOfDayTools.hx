@@ -1,3 +1,5 @@
+import ufcommon.sys.db.Types;
+
 class TimeOfDayTools
 {
 	/** From a string "HH:MM:DD" (24hr time) to an Int, reflecting the number of seconds into the day */
@@ -53,7 +55,7 @@ class TimeOfDayTools
 	}
 }
 
-typedef TimeOfDay = Int;
+typedef TimeOfDay = SMediumUInt;
 
 class TimeOfDayToolsTest 
 {
