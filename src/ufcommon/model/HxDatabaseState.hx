@@ -1,7 +1,7 @@
 package ufcommon.model;
 
-import ufcommon.sys.db.Object;
-import ufcommon.sys.db.Types;
+import ufcommon.db.Object;
+import ufcommon.db.Types;
 
 class HxDatabaseState extends Object
 {

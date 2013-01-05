@@ -1,8 +1,8 @@
 package ufcommon.model;
 
-import ufcommon.sys.db.Object;
-import ufcommon.sys.db.Types;
-import ufcommon.sys.db.ManyToMany;
+import ufcommon.db.Object;
+import ufcommon.db.Types;
+import ufcommon.db.ManyToMany;
 using Lambda;
 
 interface IUser

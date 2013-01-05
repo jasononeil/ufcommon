@@ -1,7 +1,7 @@
-package ufcommon.sys.db;
+package ufcommon.db;
 
-import ufcommon.sys.db.Types;
-import ufcommon.sys.db.Object;
+import ufcommon.db.Types;
+import ufcommon.db.Object;
 import sys.db.Manager;
 
 class Relationship extends Object

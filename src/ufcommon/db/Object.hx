@@ -1,6 +1,6 @@
-package ufcommon.sys.db;
+package ufcommon.db;
 
-import ufcommon.sys.db.Types;
+import ufcommon.db.Types;
 
 #if (neko || php || cpp)
 	class Object extends sys.db.Object

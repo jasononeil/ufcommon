@@ -1,7 +1,7 @@
 package ufcommon.model;
 
-import ufcommon.sys.db.Types;
-import ufcommon.sys.db.Object;
+import ufcommon.db.Types;
+import ufcommon.db.Object;
 import ufcommon.model.Group;
 
 class Permission extends Object

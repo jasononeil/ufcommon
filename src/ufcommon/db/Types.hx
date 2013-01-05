@@ -1,4 +1,4 @@
-package ufcommon.sys.db;
+package ufcommon.db;
 
 class Types
 {
