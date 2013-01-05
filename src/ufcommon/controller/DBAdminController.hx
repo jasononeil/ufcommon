@@ -11,10 +11,7 @@ using Detox;
 
 class DBAdminController extends Controller
 {
-    static var models:Array<Class<Dynamic>> = [
-        ufcommon.model.User,
-        app.school.model.School
-    ];
+    public static var models:Array<Class<Dynamic>> = [];
 
     static public function addRoutes(routes:RouteCollection, ?prefix:String = "/dbadmin/")
     {
