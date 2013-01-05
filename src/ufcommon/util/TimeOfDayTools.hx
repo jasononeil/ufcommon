@@ -1,3 +1,5 @@
+package ufcommon.util;
+
 import ufcommon.sys.db.Types;
 
 class TimeOfDayTools
