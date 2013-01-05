@@ -6,11 +6,28 @@ import ufcommon.db.Types;
 	class Object extends sys.db.Object
 	{
 		public var id:SId;
+		public var created:SDateTime;
+		public var modified:SDateTime;
+
+		override public function insert()
+		{
+			this.created = Date.now();
+			this.modified = Date.now();
+			super.insert();
+		}
+
+		override public function update()
+		{
+			this.modified = Date.now();
+			super.update();
+		}
 	}
 #else 
 	class Object implements haxe.rtti.Infos
 	{
 		public var id:SId;
+		public var created:SDateTime;
+		public var modified:SDateTime;
 
 		public function new() {}
 		
