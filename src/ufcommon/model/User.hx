@@ -5,18 +5,7 @@ import ufcommon.db.Types;
 import ufcommon.db.ManyToMany;
 using Lambda;
 
-interface IUser
-{
-	// Fields in the object
-	var username:SString<20>;
-
-	// Methods that are implemented:
-	function insert():Void;
-	function update():Void;
-	function delete():Void;
-}
-
-class User extends Object, implements IUser
+class User extends Object
 {
 	public var username:SString<20>;
 	public var salt:SString<32>;
@@ -44,7 +33,7 @@ class User extends Object, implements IUser
 	{
 		var str = Type.enumConstructor(e);
 		loadUserPermissions();
-		return Lambda.has(allUserPermissions, str) ? true : false;
+		return allUserPermissions.has(str);
 	}
 
 	@:skip var allUserPermissions:List<String>;
