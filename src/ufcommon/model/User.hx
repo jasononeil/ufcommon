@@ -2,6 +2,8 @@ package ufcommon.model;
 
 import ufcommon.sys.db.Object;
 import ufcommon.sys.db.Types;
+import ufcommon.sys.db.ManyToMany;
+using Lambda;
 
 interface IUser
 {
@@ -14,12 +16,20 @@ interface IUser
 	function delete():Void;
 }
 
-#if server 
 class User extends Object, implements IUser
 {
 	public var username:SString<20>;
 	public var salt:SString<32>;
 	public var password:SString<32>;
+
+	@:skip @:manyToMany		public var groups(get,null):ManyToMany<User, Group>;
+
+	@:skip var _groups:ManyToMany<User, Group>;
+	function get_groups()
+	{
+		if (_groups == null) _groups = new ManyToMany(this, Group);
+		return _groups;
+	}
 
 	public function new(u:String, p:String)
 	{
@@ -29,37 +39,37 @@ class User extends Object, implements IUser
 		this.password = generatePasswordHash(p, salt);
 	}
 
-	public function getSafeObject()
+	/** Check permissions.  if (myUser.can(DriveCar) && myUser.can(BorrowParentsCar)) { ... } */
+	public function can(e:EnumValue)
 	{
-		return new SafeUser(this);
+		var str = Type.enumConstructor(e);
+		loadUserPermissions();
+		return Lambda.has(allUserPermissions, str) ? true : false;
+	}
+
+	@:skip var allUserPermissions:List<String>;
+	function loadUserPermissions()
+	{
+		#if server 
+			if (allUserPermissions == null)
+			{
+				var groupIDs = groups.map(function (g:Group) { return g.id; });
+ 				var permissionList = Permission.manager.search($groupID in groupIDs);
+				allUserPermissions = permissionList.map(function (p:Permission) { return p.permission; });
+			}
+		#end
+	}
+
+	public function removeSensitiveData()
+	{
+		this.salt = "";
+		this.password = "";
+		return this;
 	}
 
 	public static function generatePasswordHash(password:String, salt:String)
 	{
 		return PBKDF2.encode(password, salt, 500, 32);
 	}
-}
-#else 
-typedef User = SafeUser;
-#end
-
-/** UserSafe is a version of the User model that is safe to use on the client side - it does not store sensitive data. */
-class SafeUser extends Object, implements IUser
-{
-	public var username:SString<20>;
-
-	public function new(?u:User)
-	{
-		super();
-		if (u != null)
-		{
-			this.id = u.id;
-			this.username = u.username;
-		}
-	}
-
-	public function getFullObject()
-	{
-		// return User.manager.get(id);
-	}
+	
 }
