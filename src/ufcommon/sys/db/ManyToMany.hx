@@ -58,8 +58,9 @@ class ManyToMany<A:Object, B:Object>
 		var arr = [a,b];
 		arr.sort(function(x,y) return Reflect.compare(x,y));
 
-		// Join the names - eg SchoolClass_join_Student
-		return arr.join('_join_');
+		// Join the names - eg join_SchoolClass_Student
+		arr.unshift("join");
+		return arr.join('_');
 	}
 
 	@:access(sys.db.Manager)
