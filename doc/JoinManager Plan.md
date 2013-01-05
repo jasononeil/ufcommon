@@ -4,7 +4,7 @@ Join Plan
 JoinManager
 
  * Like sys.db.Manager
- * Looks for @:relation metadata (one-to-one)
+ * Looks for @:relationm, @:join metadata (one-to-one)
  	* Automatically joins those tables (recursively, left outer join)
  	* Changes the way it reads results and creates objects to work with multiple tables
  		* Start with our object, read, but with prefix
