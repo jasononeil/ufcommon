@@ -11,7 +11,7 @@ using Detox;
 
 class DBAdminController extends Controller
 {
-    public static var models:Array<Class<Dynamic>> = [];
+    public static var models:List<Class<Dynamic>> = new List();
 
     static public function addRoutes(routes:RouteCollection, ?prefix:String = "/dbadmin/")
     {
