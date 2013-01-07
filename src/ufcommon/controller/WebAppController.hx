@@ -1,4 +1,5 @@
 package ufcommon.controller;
+
 import ufront.web.mvc.Controller;
 import ufront.web.mvc.ContentResult;
 import ufront.web.routing.RouteCollection;

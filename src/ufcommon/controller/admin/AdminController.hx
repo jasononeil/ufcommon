@@ -1,11 +1,11 @@
-package ufcommon.admin.controller;
+package ufcommon.controller.admin;
 import ufront.web.mvc.Controller;
 import ufront.web.mvc.ContentResult;
 import ufront.web.mvc.DetoxResult;
 import ufront.web.routing.RouteCollection;
 
 import ufcommon.view.dbadmin.*;
-import ufcommon.model.HxDatabaseState;
+import ufcommon.model.admin.HxDatabaseState;
 
 using Detox;
 

@@ -1,4 +1,4 @@
-package ufcommon.model;
+package ufcommon.model.admin;
 
 import ufcommon.db.Object;
 import ufcommon.db.Types;

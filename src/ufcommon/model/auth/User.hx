@@ -1,4 +1,4 @@
-package ufcommon.auth.model;
+package ufcommon.model.auth;
 
 import ufcommon.db.Object;
 import ufcommon.db.Types;
