@@ -4,7 +4,7 @@ import ufront.web.mvc.ContentResult;
 import ufront.web.mvc.DetoxResult;
 import ufront.web.routing.RouteCollection;
 
-import ufcommon.view.dbadmin.*;
+import ufcommon.view.admin.*;
 import ufcommon.model.admin.HxDatabaseState;
 
 using Detox;
@@ -25,7 +25,7 @@ class AdminController extends Controller
     public function index() 
     {
         checkTableExists();
-        var view = new DBAdminView();
+        var view = new AdminView();
         view.loop.addList(Lambda.map(models, function (t) { return Type.getClassName(t); }));
         return new DetoxResult(view);
     }
