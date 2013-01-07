@@ -1,4 +1,4 @@
-package ufcommon.controller;
+package ufcommon.admin.controller;
 import ufront.web.mvc.Controller;
 import ufront.web.mvc.ContentResult;
 import ufront.web.mvc.DetoxResult;
@@ -9,16 +9,16 @@ import ufcommon.model.HxDatabaseState;
 
 using Detox;
 
-class DBAdminController extends Controller
+class AdminController extends Controller
 {
     public static var models:List<Class<Dynamic>> = new List();
 
-    static public function addRoutes(routes:RouteCollection, ?prefix:String = "/dbadmin/")
+    static public function addRoutes(routes:RouteCollection, ?prefix:String = "/admin")
     {
     	routes
-        .addRoute(prefix, { controller : "DBAdminController", action : "index" } )
-        .addRoute(prefix + "model/{model}", { controller : "DBAdminController", action : "viewModel" } )
-        .addRoute(prefix + "model/{model}/run/{actionID}", { controller : "DBAdminController", action : "runAction" } )
+        .addRoute(prefix + "/", { controller : "AdminController", action : "index" } )
+        .addRoute(prefix + "/model/{model}", { controller : "AdminController", action : "viewModel" } )
+        .addRoute(prefix + "/model/{model}/run/{actionID}", { controller : "AdminController", action : "runAction" } )
 		;
     }
 
