@@ -1,16 +1,16 @@
-package ufcommon.view.dbadmin;
+package ufcommon.view.admin;
 
 import dtx.widget.WidgetLoop;
 using Detox;
 
-class DBAdminView extends dtx.widget.Widget 
+class AdminView extends dtx.widget.Widget 
 {
 	public var loop:WidgetLoop<String>;
 
 	public function new()
 	{
 		super();
-		loop = new WidgetLoop(DBAdminView_ModelRow, "modelName");
+		loop = new WidgetLoop(AdminView_ModelRow, "modelName");
 		modelTable.append(loop);
 	}
 }
