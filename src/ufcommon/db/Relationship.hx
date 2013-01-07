@@ -2,7 +2,9 @@ package ufcommon.db;
 
 import ufcommon.db.Types;
 import ufcommon.db.Object;
-import sys.db.Manager;
+#if server 
+	import sys.db.Manager;
+#end 
 
 class Relationship extends Object
 {
