@@ -1,11 +1,11 @@
-package ufcommon.model;
+package ufcommon.auth.model;
 
 import ufcommon.db.Types;
 import ufcommon.db.Object;
 import ufcommon.db.ManyToMany;
 
-import ufcommon.model.Permission;
-import ufcommon.model.User;
+import ufcommon.auth.model.Permission;
+import ufcommon.auth.model.User;
 
 class Group extends Object
 {

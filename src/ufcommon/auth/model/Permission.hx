@@ -1,8 +1,8 @@
-package ufcommon.model;
+package ufcommon.auth.model;
 
 import ufcommon.db.Types;
 import ufcommon.db.Object;
-import ufcommon.model.Group;
+import ufcommon.auth.model.Group;
 
 class Permission extends Object
 {
