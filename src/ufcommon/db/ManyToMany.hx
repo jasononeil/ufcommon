@@ -31,7 +31,7 @@ class ManyToMany<A:Object, B:Object>
 		this.b = bClass;
 		this.aObject = aObject;
 		bManager = untyped b.manager;
-		this.tableName = generateTableName();
+		this.tableName = generateTableName(a,b);
 
 		if (managers.exists(tableName))
 		{
@@ -58,7 +58,7 @@ class ManyToMany<A:Object, B:Object>
 		return (arr[0] == a);
 	}
 		
-	function generateTableName()
+	function generateTableName(a:Class<Dynamic>, b:Class<Dynamic>)
 	{
 		// Get the names (class name, last section after package list, lower case)
 		var aName = Type.getClassName(a).split('.').pop();
