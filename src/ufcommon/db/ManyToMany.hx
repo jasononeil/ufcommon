@@ -58,14 +58,14 @@ class ManyToMany<A:Object, B:Object>
 		return (arr[0] == a);
 	}
 		
-	function generateTableName(a:Class<Dynamic>, b:Class<Dynamic>)
+	static public function generateTableName(a:Class<Dynamic>, b:Class<Dynamic>)
 	{
 		// Get the names (class name, last section after package list, lower case)
 		var aName = Type.getClassName(a).split('.').pop();
 		var bName = Type.getClassName(b).split('.').pop();
 
 		// Sort the names alphabetically, so we don't end up with 2 join tables...
-		var arr = [a,b];
+		var arr = [aName,bName];
 		arr.sort(function(x,y) return Reflect.compare(x,y));
 
 		// Join the names - eg join_SchoolClass_Student
@@ -84,14 +84,15 @@ class ManyToMany<A:Object, B:Object>
 	{
 		var id = aObject.id;
 		var aColumn = (isABeforeB()) ? "r1" : "r2";
+		var bColumn = (isABeforeB()) ? "r2" : "r1";
 		
 		// var relationships = manager.search($a == id);
 		var relationships = manager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
-		var bListIDs = relationships.map(function (r:Relationship) { return r.b; });
+		var bListIDs = relationships.map(function (r:Relationship) { return Reflect.field(r, bColumn); });
 		
 		// Search B table for our list of IDs.  
 		// bList = bManager.search($id in bListIDs);
-		var xlist = bManager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(bManager.table_name) + " WHERE " + Manager.quoteList("id", bListIDs), false);
+		var xlist = bManager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(bManager.table_name) + " WHERE " + Manager.quoteList(bColumn, bListIDs), false);
 	}
 		
 	public function add(bObject:B)
@@ -147,7 +148,7 @@ class ManyToMany<A:Object, B:Object>
 	public function push(bObject:B)
 	{
 		bList.push(bObject);
-		if (bObject.save());
+		bObject.save();
 		
 		var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
 		        else              new Relationship(bObject.id, aObject.id);
