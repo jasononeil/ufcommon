@@ -35,7 +35,7 @@ class ManyToMany<A:Object, B:Object>
 
 		if (managers.exists(tableName))
 		{
-			// Managers are stored as Manager<Object>, we want to cast it to Manager<Relationship<A,B>>
+			// Managers are stored as Manager<Object>, we want to cast it to Manager<Relationship>
 			this.manager = cast managers.get(tableName);
 		}
 		else 
@@ -46,6 +46,16 @@ class ManyToMany<A:Object, B:Object>
 		}
 
 		refreshList();
+	}
+	
+	function isABeforeB()
+	{
+		// Get the names (class name, last section after package list, lower case)
+		var aName = Type.getClassName(a).split('.').pop();
+		var bName = Type.getClassName(b).split('.').pop();
+		var arr = [a,b];
+		arr.sort(function(x,y) return Reflect.compare(x,y));
+		return (arr[0] == a);
 	}
 		
 	function generateTableName()
@@ -59,7 +69,7 @@ class ManyToMany<A:Object, B:Object>
 		arr.sort(function(x,y) return Reflect.compare(x,y));
 
 		// Join the names - eg join_SchoolClass_Student
-		arr.unshift("join");
+		arr.unshift("_join");
 		return arr.join('_');
 	}
 
@@ -73,8 +83,10 @@ class ManyToMany<A:Object, B:Object>
 	public function refreshList()
 	{
 		var id = aObject.id;
+		var aColumn = (isABeforeB()) ? "r1" : "r2";
+		
 		// var relationships = manager.search($a == id);
-		var relationships = manager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(tableName) + " WHERE a = " + Manager.quoteAny(id), false);
+		var relationships = manager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
 		var bListIDs = relationships.map(function (r:Relationship) { return r.b; });
 		
 		// Search B table for our list of IDs.  
@@ -91,22 +103,29 @@ class ManyToMany<A:Object, B:Object>
 		else
 			bObject.update();
 		
-		var r = new Relationship(aObject.id, bObject.id);
+		var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
+		        else              new Relationship(bObject.id, aObject.id);
+		
 		r.insert();
 	}
 
 	public function remove(bObject:B)
 	{
 		bList.remove(bObject);
+		var aColumn = (isABeforeB()) ? "r1" : "r2";
+		var bColumn = (isABeforeB()) ? "r2" : "r1";
+		
 		// manager.delete($a == aObject.id && $b == bObject.id);
-		manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE a = " + Manager.quoteAny(aObject.id) + " AND b = " + Manager.quoteAny(bObject.id));
+		manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
 	}
 
 	public function clear()
 	{
 		bList.clear();
+		var aColumn = (isABeforeB()) ? "r1" : "r2";
+		
 		// manager.delete($a == aObject.id);
-		manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE a = " + Manager.quoteAny(aObject.id));
+		manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id));
 	}
 
 	public function iterator():Iterator<B>
@@ -117,20 +136,22 @@ class ManyToMany<A:Object, B:Object>
 	public function pop():B
 	{
 		var bObject = bList.pop();
+		var aColumn = (isABeforeB()) ? "r1" : "r2";
+		var bColumn = (isABeforeB()) ? "r2" : "r1";
+		
 		// manager.delete($a == aObject.id && $b == bObject.id);
-		manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE a = " + Manager.quoteAny(aObject.id) + " AND b = " + Manager.quoteAny(bObject.id));
+		manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
 		return bObject;
 	}
 
 	public function push(bObject:B)
 	{
 		bList.push(bObject);
-		if (bObject.id == null)
-			bObject.insert();
-		else
-			bObject.update();
+		if (bObject.save());
 		
-		var r = new Relationship(aObject.id, bObject.id);
+		var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
+		        else              new Relationship(bObject.id, aObject.id);
+		
 		r.insert();	
 	}
 }
