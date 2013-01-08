@@ -4,8 +4,11 @@ import ufront.web.mvc.ContentResult;
 import ufront.web.mvc.DetoxResult;
 import ufront.web.routing.RouteCollection;
 
-import ufcommon.view.admin.*;
+import ufcommon.view.admin.AdminView;
 import ufcommon.model.admin.HxDatabaseState;
+import ufcommon.db.Migration;
+
+import detox.DetoxLayout;
 
 using Detox;
 
@@ -13,40 +16,71 @@ class AdminController extends Controller
 {
     public static var models:List<Class<Dynamic>> = new List();
 
-    static public function addRoutes(routes:RouteCollection, ?prefix:String = "/admin")
+    static var prefix = "/admin";
+
+    static public function addRoutes(routes:RouteCollection, ?p:String = "/admin")
     {
-    	routes
+        if (p != null) prefix = p;
+        routes
         .addRoute(prefix + "/", { controller : "AdminController", action : "index" } )
-        .addRoute(prefix + "/model/{model}", { controller : "AdminController", action : "viewModel" } )
-        .addRoute(prefix + "/model/{model}/run/{actionID}", { controller : "AdminController", action : "runAction" } )
-		;
+        .addRoute(prefix + "/migrations/", { controller : "AdminController", action : "viewMigrations" } )
+        .addRoute(prefix + "/migrations/run/{name}", { controller : "AdminController", action : "runMigration" } )
+        // .addRoute(prefix + "/model/{model}/run/{actionID}", { controller : "AdminController", action : "runAction" } )
+        .addRoute(prefix + "/{?*rest}", { controller : "AdminController", action : "notFound" } )
+        ;
     }
 
     public function index() 
     {
-        checkTableExists();
+        checkTablesExists();
         var view = new AdminView();
-        view.loop.addList(Lambda.map(models, function (t) { return Type.getClassName(t); }));
-        return new DetoxResult(view);
+        return new DetoxResult(view, getLayout());
     }
 
-    public function viewModel(model:String) 
+    public function notFound() 
     {
-        var view = '<h1>View model: $model</h1>'.parse();
-        return new DetoxResult(view);
+        var view = "Page not found.".parse();
+        return new DetoxResult(view, getLayout());
     }
 
-    public function runAction(model:String, actionID:String) 
+    public function viewMigrations()
     {
-        var view = '<h1>Run action on $model: $actionID</h1>'.parse();
-        return new DetoxResult(view);
+        CompileTime.importPackage("ufcommon.migrate");
+        var migrations:List<Class<Migration>> = cast CompileTime.getAllClasses(Migration);
+        var view = new MigrationListView();
+        view.loop.addList(Lambda.map(migrations, function (t) { return Type.getClassName(t); }));
+        return new DetoxResult(view, getLayout());
     }
 
-    function checkTableExists()
+    public function runMigration(name:String) 
+    {
+        var view = '<h1>Run this migration: $name</h1>'.parse();
+        return new DetoxResult(view, getLayout());
+    }
+
+    // public function runAction(model:String, actionID:String) 
+    // {
+    //     var view = '<h1>Run action on $model: $actionID</h1>'.parse();
+    //     return new DetoxResult(view, getLayout());
+    // }
+
+    function checkTablesExists()
     {
         if ( !sys.db.TableCreate.exists(HxDatabaseState.manager) )
         {
             sys.db.TableCreate.create(HxDatabaseState.manager);
         }
+    }
+
+    function getLayout()
+    {
+        var template = CompileTime.readXmlFile("ufcommon/view/admin/layout.html");
+        var layout = new DetoxLayout(template);
+        layout.title = "Ufront Admin Console";
+        layout.addStylesheet("/css/screen.css");
+
+        var server = neko.Web.getClientHeader("Host");
+        layout.head.append('<base href="http://$server$prefix/" />'.parse());
+        return layout;
     }
 }
