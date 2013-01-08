@@ -8,13 +8,13 @@ import ufcommon.db.Object;
 
 class Relationship extends Object
 {
-	public var a:SInt;
-	public var b:SInt;
+	public var r1:SInt;
+	public var r2:SInt;
 	
-	public function new(a:Int, b:Int)
+	public function new(r1:Int, r2:Int)
 	{
 		super();
-		this.a = a;
-		this.b = b;
+		this.r1 = r1;
+		this.r2 = r2;
 	}
 }
