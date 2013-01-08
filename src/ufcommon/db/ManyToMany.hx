@@ -3,6 +3,7 @@ package ufcommon.db;
 import ufcommon.db.Types;
 import ufcommon.db.Object;
 import ufcommon.db.Relationship;
+
 import sys.db.Manager;
 
 // Note:
@@ -19,7 +20,7 @@ class ManyToMany<A:Object, B:Object>
 	var a:Class<A>;
 	var b:Class<B>;
 	var aObject:A;
-	var bManager:Manager<app.coredata.model.Department>;
+	var bManager:Manager<B>;
 	var tableName:String;
 	var manager:Manager<Relationship>;
 	var bList:List<B>;
@@ -29,8 +30,7 @@ class ManyToMany<A:Object, B:Object>
 		this.a = Type.getClass(aObject);
 		this.b = bClass;
 		this.aObject = aObject;
-		// bManager = untyped b.manager;
-		bManager = app.coredata.model.Department.manager;
+		bManager = untyped b.manager;
 		this.tableName = generateTableName();
 
 		if (managers.exists(tableName))
