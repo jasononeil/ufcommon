@@ -21,6 +21,26 @@ import ufcommon.db.Types;
 			this.modified = Date.now();
 			super.update();
 		}
+		
+		public function save()
+		{
+			if (id == null)
+			{
+				insert();
+			}
+			else
+			{
+				try 
+				{
+					update();
+				}
+				catch (e:Dynamic)
+				{
+					// It had an ID, but it wasn't in the DB... so insert it
+					insert();
+				}
+			}
+		}
 	}
 #else 
 	class Object implements haxe.rtti.Infos
