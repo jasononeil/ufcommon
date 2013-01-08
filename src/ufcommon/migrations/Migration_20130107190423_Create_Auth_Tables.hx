@@ -5,17 +5,13 @@ import ufcommon.model.auth.*;
 
 class Migration_20130107190423_Create_Auth_Tables extends Migration
 {
-	override public function up()
+	override public function change()
 	{
-		Migration.createTable(User);
-		Migration.createTable(Group);
-		Migration.createTable(Permission);
-	}
+		createTable(User);
+		createTable(Group);
+		createTable(Permission);
 
-	override public function down()
-	{
-		Migration.dropTable(User);
-		Migration.dropTable(Group);
-		Migration.dropTable(Permission);
+		// Create ManyToMany
+		createTable(Relationship, ManyToMany.generateTableName(Group, User));
 	}
 }
