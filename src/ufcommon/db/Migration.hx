@@ -3,53 +3,124 @@ package ufcommon.db;
 import ufcommon.db.Object;
 import ufcommon.db.Types;
 import sys.db.Connection;
+import sys.db.SpodInfos;
 
 class Migration
 {
 	public var name:String;
+	var upCommands:Array<String>;
+	var downCommands:Array<String>;
+
 	public function new()
 	{
 		name = Type.getClassName(Type.getClass(this));
+		upCommands = [];
+		downCommands = [];
 	}
 
-	public function up()
+	public function change()
 	{
-		throw "Abstract method: please make sure your migrations implement the up() method...";
+		throw "Abstract method: please make sure your migrations implement the change() method...";
 	}
 
-	public function down()
+	public function run(direction)
 	{
-		throw "Abstract method: please make sure your migrations implement the down() method...";
-	}
-
-	//
-	// Static API
-	//
-
-	static public function createTable(t:Class<sys.db.Object>)
-	{
-		var m = untyped t.manager;
-		if ( !sys.db.TableCreate.exists(m) )
+		var cnx = sys.db.Manager.cnx;
+		if( cnx == null )
+			throw "SQL Connection not initialized on Manager";
+		
+		var commands = switch(direction) {
+			case Up: upCommands;
+			case Down: downCommands;
+		}
+		
+		for (command in commands)
 		{
-			sys.db.TableCreate.create(m);
+			cnx.request(command);
 		}
 	}
 
-	static public function dropTable(t:Class<sys.db.Object>)
+	//
+	// API to change DB Structure
+	// Each of these generates the SQL for the change in both directions
+	//
+
+	function createTable(t:Class<sys.db.Object>, ?tableName:String)
 	{
-		var manager = untyped t.manager;
-		if ( !sys.db.TableCreate.exists(manager) )
-		{
-			function quote(v:String):String {
-				return untyped manager.quoteField(v);
+		var m:sys.db.Manager<sys.db.Object> = untyped t.manager;
+
+		// Add the UP command
+		upCommands.push(MigrationHelpers.createTableSql(m, tableName));
+		
+		// Add the DOWN command
+		downCommands.push(MigrationHelpers.dropTableSql(m, tableName));
+	}
+}
+
+class MigrationHelpers 
+{
+	static var manager = new sys.db.Manager<sys.db.Object>(sys.db.Object);
+	
+	public static function quote(v:String):String {
+		return untyped manager.quoteField(v);
+	}
+
+	public static inline function getTypeSQL( t : SpodType, dbName : String ) 
+	{
+		return sys.db.TableCreate.getTypeSQL(t, dbName);
+	}
+
+	public static function createTableSql(manager:sys.db.Manager<Dynamic>, ?tableName:String, ?engine:String)
+	{
+		var cnx : Connection = sys.db.Manager.cnx;
+		if( cnx == null )
+			throw "SQL Connection not initialized on Manager";
+		var dbName = cnx.dbName();
+
+		var infos = manager.dbInfos();
+		if (tableName == null) tableName = infos.name;
+		var sql = "CREATE TABLE " + quote(tableName) + " (";
+		var decls = [];
+		var hasID = false;
+		for( f in infos.fields ) {
+			switch( f.t ) {
+			case DId:
+				hasID = true;
+			case DUId, DBigId:
+				hasID = true;
+				if( dbName == "SQLite" )
+					throw "S" + Std.string(f.t).substr(1)+" is not supported by " + dbName + " : use SId instead";
+			default:
 			}
-			var cnx : Connection = untyped manager.getCnx();
-			if( cnx == null )
-				throw "SQL Connection not initialized on Manager";
-			var dbName = cnx.dbName();
-			var infos = manager.dbInfos();
-			var sql = "DROP TABLE " + quote(infos.name);
-			cnx.request(sql);
+			decls.push(quote(f.name)+" "+getTypeSQL(f.t,dbName)+(f.isNull ? "" : " NOT NULL"));
 		}
+		if( dbName != "SQLite" || !hasID )
+			decls.push("PRIMARY KEY ("+Lambda.map(infos.key,quote).join(",")+")");
+		sql += decls.join(",");
+		sql += ")";
+		if( engine != null )
+			sql += "ENGINE="+engine;
+
+		return sql;
 	}
+
+	public static function dropTableSql(?manager:sys.db.Manager<sys.db.Object>, ?tableName:String)
+	{
+		if (manager == null && tableName == null) throw "dropTableSql requires you to give either a manager or a table name.";
+
+		if (tableName == null)
+		{
+			var info = untyped manager.dbInfos();
+			tableName = info.name;
+		}
+
+		var sql = "DROP TABLE IF EXISTS " + quote(tableName);
+
+		return sql;
+	}
+}
+
+enum Direction {
+	Up;
+	Down;
 }
