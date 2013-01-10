@@ -59,7 +59,9 @@ class Migration
 
 class MigrationHelpers 
 {
-	static var manager = new sys.db.Manager<sys.db.Object>(sys.db.Object);
+	// We need a manager, but managers are tied to a specific model, though that doesn't matter to us here.
+	// For now I'll use the User manager, but a more generic solution would be nice
+	static var manager = ufcommon.model.auth.User.manager;
 	
 	public static function quote(v:String):String {
 		return untyped manager.quoteField(v);
@@ -70,7 +72,7 @@ class MigrationHelpers
 		return sys.db.TableCreate.getTypeSQL(t, dbName);
 	}
 
-	public static function createTableSql(manager:sys.db.Manager<Dynamic>, ?tableName:String, ?engine:String)
+	public static function createTableSql(manager:sys.db.Manager<sys.db.Object>, ?tableName:String, ?engine:String)
 	{
 		var cnx : Connection = sys.db.Manager.cnx;
 		if( cnx == null )
