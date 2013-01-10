@@ -72,14 +72,14 @@ class MigrationHelpers
 		return sys.db.TableCreate.getTypeSQL(t, dbName);
 	}
 
-	public static function createTableSql(manager:sys.db.Manager<sys.db.Object>, ?tableName:String, ?engine:String)
+	public static function createTableSql(mngr:sys.db.Manager<sys.db.Object>, ?tableName:String, ?engine:String)
 	{
 		var cnx : Connection = sys.db.Manager.cnx;
 		if( cnx == null )
 			throw "SQL Connection not initialized on Manager";
 		var dbName = cnx.dbName();
 
-		var infos = manager.dbInfos();
+		var infos = mngr.dbInfos();
 		if (tableName == null) tableName = infos.name;
 		var sql = "CREATE TABLE " + quote(tableName) + " (";
 		var decls = [];
@@ -106,13 +106,13 @@ class MigrationHelpers
 		return sql;
 	}
 
-	public static function dropTableSql(?manager:sys.db.Manager<sys.db.Object>, ?tableName:String)
+	public static function dropTableSql(?mngr:sys.db.Manager<sys.db.Object>, ?tableName:String)
 	{
-		if (manager == null && tableName == null) throw "dropTableSql requires you to give either a manager or a table name.";
+		if (mngr == null && tableName == null) throw "dropTableSql requires you to give either a manager or a table name.";
 
 		if (tableName == null)
 		{
-			var info = untyped manager.dbInfos();
+			var info = untyped mngr.dbInfos();
 			tableName = info.name;
 		}
 
