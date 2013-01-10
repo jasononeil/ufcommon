@@ -1,10 +1,11 @@
-<h1>Model List</h1>
+<h1>Database Migrations</h1>
 <div>
+	<h3>The following migrations need to be run</h3>
 	<table>
 		<thead>
 			<tr>
-				<th>Migrations</th>
-				<th>Actions</th>
+				<th>Migration</th>
+				<th>Direction</th>
 			</tr>
 		</thead>
 		<tbody dtx-name="modelTable"></tbody>
@@ -12,12 +13,8 @@
 </div>
 
 <_ModelRow>
-	<tr>
-		<td>$name</td>
-		<td>$modelName</td>
-		<td>
-			<a href="#" class="btn">Up</a>
-			<a href="#" class="btn">Down</a>
-		</td>
+	<tr class="$(direction.toLowerCase())">
+		<td><b>$name</b></td>
+		<td>$direction</td>
 	</tr>
 </_ModelRow>

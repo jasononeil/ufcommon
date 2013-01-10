@@ -8,12 +8,17 @@ class AdminView extends Widget {}
 
 class MigrationListView extends Widget 
 {
-	public var loop:WidgetLoop<String>;
+	public var loop:WidgetLoop<Class<ufcommon.db.Migration>>;
 
 	public function new()
 	{
 		super();
-		loop = new WidgetLoop(MigrationListView_ModelRow, "modelName");
+		loop = new WidgetLoop(MigrationListView_ModelRow, "model");
 		modelTable.append(loop);
 	}
+}
+
+class MigrationListView_ModelRow extends Widget
+{
+	public var model:Class<ufcommon.db.Migration>;
 }

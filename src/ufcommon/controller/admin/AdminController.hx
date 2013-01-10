@@ -45,10 +45,9 @@ class AdminController extends Controller
 
     public function viewMigrations()
     {
-        CompileTime.importPackage("ufcommon.migrate");
         var migrations:List<Class<Migration>> = cast CompileTime.getAllClasses(Migration);
         var view = new MigrationListView();
-        view.loop.addList(Lambda.map(migrations, function (t) { return Type.getClassName(t); }));
+        view.loop.addList(migrations);
         return new DetoxResult(view, getLayout());
     }
 
