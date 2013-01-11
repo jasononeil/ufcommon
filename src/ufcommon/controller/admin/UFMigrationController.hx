@@ -13,38 +13,8 @@ import detox.DetoxLayout;
 using Detox;
 using Lambda;
 
-class AdminController extends Controller
+class UFMigrationController extends Controller
 {
-    public static var models:List<Class<Dynamic>> = new List();
-
-    static var prefix = "/admin";
-
-    static public function addRoutes(routes:RouteCollection, ?p:String = "/admin")
-    {
-        if (p != null) prefix = p;
-        routes
-        .addRoute(prefix + "/", { controller : "AdminController", action : "index" } )
-        .addRoute(prefix + "/migrations/", { controller : "AdminController", action : "viewMigrations" } )
-        .addRoute(prefix + "/migrations/run/", { controller : "AdminController", action : "runMigrations" } )
-        .addRoute(prefix + "/migrations/runsingle/up/", { controller : "AdminController", action : "runMigrationUp" } )
-        .addRoute(prefix + "/migrations/runsingle/down/", { controller : "AdminController", action : "runMigrationDown" } )
-        .addRoute(prefix + "/{?*rest}", { controller : "AdminController", action : "notFound" } )
-        ;
-    }
-
-    public function index() 
-    {
-        checkTablesExists();
-        var view = new AdminView();
-        return new DetoxResult(view, getLayout());
-    }
-
-    public function notFound() 
-    {
-        var view = "Page not found.".parse();
-        return new DetoxResult(view, getLayout());
-    }
-
     public function viewMigrations()
     {
         return displayMigrationsAndResults();
@@ -69,7 +39,7 @@ class AdminController extends Controller
         view.runDown.addList(migrations.down.map(function (m) { return m.name; } ));
         view.alreadyRun.addList(migrations.leave.map(function (m) { return m.name; } ));
         
-        return new DetoxResult(view, getLayout());
+        return new DetoxResult(view, UFAdminController.getLayout());
     }
 
     public function runMigrations() 
@@ -120,7 +90,7 @@ class AdminController extends Controller
         catch (e:String)
         {
             var view = e.parse();
-            return new DetoxResult(view, getLayout());
+            return new DetoxResult(view, UFAdminController.getLayout());
         }
     }
 
@@ -152,7 +122,7 @@ class AdminController extends Controller
         catch (e:String)
         {
             var view = e.parse();
-            return new DetoxResult(view, getLayout());
+            return new DetoxResult(view, UFAdminController.getLayout());
         }
     }
 
@@ -200,25 +170,5 @@ class AdminController extends Controller
             down: down,
             leave: leave
         }
-    }
-
-    function checkTablesExists()
-    {
-        if ( !sys.db.TableCreate.exists(Migration.manager) )
-        {
-            sys.db.TableCreate.create(Migration.manager);
-        }
-    }
-
-    function getLayout()
-    {
-        var template = CompileTime.readXmlFile("ufcommon/view/admin/layout.html");
-        var layout = new DetoxLayout(template);
-        layout.title = "Ufront Admin Console";
-        layout.addStylesheet("/css/screen.css");
-
-        var server = neko.Web.getClientHeader("Host");
-        layout.head.append('<base href="http://$server$prefix/" />'.parse());
-        return layout;
     }
 }
