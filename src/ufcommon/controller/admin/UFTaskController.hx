@@ -4,9 +4,8 @@ import ufront.web.mvc.ContentResult;
 import ufront.web.mvc.DetoxResult;
 import ufront.web.routing.RouteCollection;
 
-import ufcommon.view.admin.AdminView;
-import ufcommon.view.admin.*;
-import ufcommon.db.Migration;
+import ufcommon.view.admin.TaskView;
+import ufcommon.AdminTaskSet;
 
 import detox.DetoxLayout;
 
@@ -15,160 +14,136 @@ using Lambda;
 
 class UFTaskController extends Controller
 {
-    public function viewMigrations()
+    public function viewTasks()
     {
-        return displayMigrationsAndResults();
-    }
-
-    function displayMigrationsAndResults(?results:Array<MigrationResults>)
-    {
-        var migrations = getMigrationGroups();
-        var view = new MigrationListView();
-
-        if (results != null)
-        {
-            for (r in results) 
-                view.addResults(r);
-        }
-        else 
-        {
-            view.results.addClass("hidden");
-        }
-
-        view.runUp.addList(migrations.up.map(function (m) { return m.name; } ));
-        view.runDown.addList(migrations.down.map(function (m) { return m.name; } ));
-        view.alreadyRun.addList(migrations.leave.map(function (m) { return m.name; } ));
-        
+        var view = new TaskView();
+        var taskSets:List<Class<AdminTaskSet>> = cast CompileTime.getAllClasses(AdminTaskSet);
+        view.taskSets.addList(taskSets.map(function (ts) { return Type.createInstance(ts, []); }));
         return new DetoxResult(view, UFAdminController.getLayout());
     }
 
-    public function runMigrations() 
-    {
-        var migrations = getMigrationGroups();
-
-        var results:Array<MigrationResults> = [];
-        for (m in migrations.down)
-        {
-            var r = m.run(Down);
-            results.push(r);
-        }
-        for (m in migrations.up)
-        {
-            var r = m.run(Up);
-            results.push(r);
-        }
-
-        // Now that we have run the migrations
-        return displayMigrationsAndResults(results);
-    }
-
-    public function runMigrationUp() 
+    public function run()
     {
         try 
         {
-            var postData = this.controllerContext.request.post;
-            if (postData.exists('migration')) 
+            var post = this.controllerContext.request.post;
+            if (post.exists("taskSet"))
             {
-                var migName = postData.get('migration');
-                var migrationClass = Type.resolveClass(migName);
-                if (migrationClass != null)
+                var tsName = post.get("taskSet");
+                
+                if (post.exists("runAll"))
                 {
-                    var migration = Type.createInstance(migrationClass, []);
-                    var results = migration.run(Up);
-                    return displayMigrationsAndResults([results]);
+                    return runTaskSet(tsName);
                 }
-                else 
+                else if (post.exists("task"))
                 {
-                    throw "The specified migration file was not found";
+                    var taskName = post.get("task");
+                    return runSingleTask(tsName, taskName);
                 }
+                else throw "Both taskSet and task must be given as POST parameters";
             }
-            else 
-            {
-                throw "No migration was specified.";
-            }
+            else throw "taskSet must be given as a GET parameter";
         }
         catch (e:String)
         {
-            var view = e.parse();
-            return new DetoxResult(view, UFAdminController.getLayout());
+            return new DetoxResult(e.parse(), UFAdminController.getLayout());
         }
     }
 
-    public function runMigrationDown() 
+    function runTaskSet(tsName:String)
     {
-        try 
+        var ts = getTaskSet(tsName);
+
+        var view = new TaskResultView();
+        view.taskSet = ts.taskSetTitle;
+        view.taskSetDescription = ts.taskSetDescription;
+        
+        for (task in ts.tasks)
         {
-            var postData = this.controllerContext.request.post;
-            trace (postData);
-            if (postData.exists('migration')) 
-            {
-                var migName = postData.get('migration');
-                var migration = Migration.manager.select($name == migName);
-                if (migration != null)
-                {
-                    var results = migration.run(Down);
-                    return displayMigrationsAndResults([results]);
-                }
-                else 
-                {
-                    throw "The specified migration was not already in the database, so you can't take it Down.";
-                }
-            }
-            else 
-            {
-                throw "No migration was specified.";
-            }
+            var result = runTask(tsName, task.name);
+            view.results.addItem({
+                task: task.title,
+                description: (task.description == "") ? "..." : task.description,
+                output: result.result.output
+            });
         }
-        catch (e:String)
-        {
-            var view = e.parse();
-            return new DetoxResult(view, UFAdminController.getLayout());
-        }
+
+        return new DetoxResult(view, UFAdminController.getLayout());
     }
 
-    function getMigrationGroups()
+    function runSingleTask(tsName:String, taskName:String)
     {
-        var migrationFilesList:List<Class<Migration>> = cast CompileTime.getAllClasses(Migration);
-        var migrationFiles = migrationFilesList.map(function (c) { return Type.createInstance(c, []); });
+        var result = runTask(tsName, taskName);
 
-        var migrationRows = Migration.manager.all();
+        var view = new TaskResultView();
 
-        var up:Array<Migration> = [];
-        var down:Array<Migration> = [];
-        var leave:Array<Migration> = [];
+        view.taskSet = result.ts.taskSetTitle;
+        view.taskSetDescription = result.ts.taskSetDescription;
+        view.results.addItem({
+            task: result.task.title,
+            description: (result.task.description == "") ? "..." : result.task.description,
+            output: result.result.output
+        });
 
-        for (migOnDB in migrationRows)
+        return new DetoxResult(view, UFAdminController.getLayout());
+    }
+
+    function runTask(tsName:String, taskName:String)
+    {
+        var ts = getTaskSet(tsName);
+        var post = this.controllerContext.request.post;
+        
+        // Get TaskSet inputs
+        for (inputName in ts.taskSetInputs)
         {
-            if (migrationFiles.exists(function (m) return m.name == migOnDB.name))
+            if (post.exists("ts_" + inputName))
             {
-                // It is on the Database and in the files
-                leave.push(migOnDB);
-                // Remove from the list, so that at the end all that remains is those not in the DB
-                for (m in migrationFiles) 
-                {
-                    if (m.name == migOnDB.name) migrationFiles.remove(m);
-                }
+                var varValue = post.get("ts_" + inputName);
+                if (varValue == "") throw 'The TaskSet input $inputName was empty';
+                Reflect.setProperty(ts, inputName, varValue);
             }
-            else 
+            else throw 'The TaskSet input $inputName was missing';
+        }
+
+        // Get Task inputs
+        var currentTask = ts.tasks.filter(function (t) { return t.name == taskName; }).first();
+        var taskInputs = [];
+        if (currentTask != null)
+        {
+            for (inputName in currentTask.inputs)
             {
-                // It is on the DB, but not in the files
-                down.push(migOnDB);
+                var postName = 'task_$(taskName)_$(inputName)';
+                if (post.exists(postName))
+                {
+                    var varValue = post.get(postName);
+                    if (varValue == "") 
+                        throw 'The Task input $inputName was empty';
+                    else 
+                        taskInputs.push(varValue);
+                    
+                }
+                else throw 'The Task input $inputName was missing';
             }
         }
 
-        // The leftovers are what are in files but not in the DB
-        for (m in migrationFiles) up.push(m);
-
-        var alphabeticalSort = function(a,b) return Reflect.compare(a.name.toLowerCase(),b.name.toLowerCase());
-        up.sort(alphabeticalSort);
-        down.sort(alphabeticalSort);
-        leave.sort(alphabeticalSort);
-
-
+        // Execute the task
+        var result = ts.run(taskName, taskInputs);
         return {
-            up: up,
-            down: down,
-            leave: leave
+            ts: ts,
+            task: currentTask,
+            result: result
+        };
+    }
+
+    var ts:AdminTaskSet;
+    function getTaskSet(tsName:String)
+    {
+        if (ts == null)
+        {
+            var tsClass = Type.resolveClass(tsName);
+            if (tsClass == null) throw "The TaskSet you asked for was not found: " + tsName;
+            ts = untyped Type.createInstance(tsClass, []);
         }
+        return ts;
     }
 }
