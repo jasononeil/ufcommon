@@ -28,6 +28,8 @@ class UFAdminController extends Controller
         .addRoute(prefix + "/migrations/run/", { controller : "UFMigrationController", action : "runMigrations" } )
         .addRoute(prefix + "/migrations/runsingle/up/", { controller : "UFMigrationController", action : "runMigrationUp" } )
         .addRoute(prefix + "/migrations/runsingle/down/", { controller : "UFMigrationController", action : "runMigrationDown" } )
+        .addRoute(prefix + "/tasks/", { controller : "UFTaskController", action : "viewTasks" } )
+        .addRoute(prefix + "/tasks/run/", { controller : "UFTaskController", action : "run" } )
         .addRoute(prefix + "/{?*rest}", { controller : "UFAdminController", action : "notFound" } )
         ;
     }
@@ -48,6 +50,7 @@ class UFAdminController extends Controller
     function checkTablesExists()
     {
         if (!sys.db.TableCreate.exists(Migration.manager)) sys.db.TableCreate.create(Migration.manager);
+        if (!sys.db.TableCreate.exists(ufcommon.model.admin.AdminTaskLog.manager)) sys.db.TableCreate.create(ufcommon.model.admin.AdminTaskLog.manager);
     }
 
     public static function getLayout()
