@@ -4,7 +4,9 @@ import ufcommon.db.Types;
 import ufcommon.db.Object;
 import ufcommon.db.Relationship;
 
-import ufcommon.db.Manager;
+#if server 
+	import sys.db.Manager;
+#end 
 
 // Note:
 // Throughout this class, I've had to replace SPOD macro calls with the "unsafe" runtime calls.
@@ -13,39 +15,50 @@ import ufcommon.db.Manager;
 // In the code, I've left the macro line above the "unsafe" line, but commented out, so that 
 // you can see essentially what it is that we're trying to do.
 
+// Note 2:
+// On the server side, this class does all the expected database interactions.  On the client side
+// it really does little more than keep a list of <B> objects.  When we send the ManyToMany object
+// back to the server, it should then read the list, and sync it all up.
+
 class ManyToMany<A:Object, B:Object>
 {
-	static var managers:Hash<Manager<Object>> = new Hash();
 	
 	var a:Class<A>;
 	var b:Class<B>;
 	var aObject:A;
-	var bManager:Manager<B>;
-	var tableName:String;
-	var manager:Manager<Relationship>;
 	var bList:List<B>;
 	
+	#if server 
+		var tableName:String;
+		static var managers:Hash<Manager<Object>> = new Hash();
+		var bManager:Manager<B>;
+		var manager:Manager<Relationship>;
+	#end
+
 	public function new(aObject:A, bClass:Class<B>)
 	{
-		this.a = Type.getClass(aObject);
-		this.b = bClass;
-		this.aObject = aObject;
-		bManager = untyped b.manager;
-		this.tableName = generateTableName(a,b);
 
-		if (managers.exists(tableName))
-		{
-			// Managers are stored as Manager<Object>, we want to cast it to Manager<Relationship>
-			this.manager = cast managers.get(tableName);
-		}
-		else 
-		{
-			this.manager = new Manager(Relationship);
-			setTableName(tableName);
-			managers.set(tableName, cast manager);
-		}
+		#if server 
+			this.a = Type.getClass(aObject);
+			this.b = bClass;
+			this.aObject = aObject;
+			bManager = untyped b.manager;
+			this.tableName = generateTableName(a,b);
 
-		refreshList();
+			if (managers.exists(tableName))
+			{
+				// Managers are stored as Manager<Object>, we want to cast it to Manager<Relationship>
+				this.manager = cast managers.get(tableName);
+			}
+			else 
+			{
+				this.manager = new Manager(Relationship);
+				setTableName(tableName);
+				managers.set(tableName, cast manager);
+			}
+
+			refreshList();
+		#end 
 	}
 	
 	function isABeforeB()
@@ -73,63 +86,82 @@ class ManyToMany<A:Object, B:Object>
 		return arr.join('_');
 	}
 
-	@:access(sys.db.Manager)
-	function setTableName(name:String)
-	{
-		manager.table_name = name;
-	}
-		
-	@:access(sys.db.Manager)
-	public function refreshList()
-	{
-		var id = aObject.id;
-		var aColumn = (isABeforeB()) ? "r1" : "r2";
-		var bColumn = (isABeforeB()) ? "r2" : "r1";
-		
-		// var relationships = manager.search($a == id);
-		var relationships = manager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
-		if (relationships.length > 0)
+	#if server 
+		@:access(sys.db.Manager)
+		function setTableName(name:String)
 		{
-			var bListIDs = relationships.map(function (r:Relationship) { return Reflect.field(r, bColumn); });
+			manager.table_name = name;
+		}
 			
-			// Search B table for our list of IDs.  
-			// bList = bManager.search($id in bListIDs);
-			bList = bManager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(bManager.table_name) + " WHERE " + Manager.quoteList(bColumn, bListIDs), false);
-		}
-		else
+		@:access(sys.db.Manager)
+		public function refreshList()
 		{
-			bList = new List();
+			var id = aObject.id;
+			var aColumn = (isABeforeB()) ? "r1" : "r2";
+			var bColumn = (isABeforeB()) ? "r2" : "r1";
+			
+			// var relationships = manager.search($a == id);
+			var relationships = manager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
+			if (relationships.length > 0)
+			{
+				var bListIDs = relationships.map(function (r:Relationship) { return Reflect.field(r, bColumn); });
+				
+				// Search B table for our list of IDs.  
+				// bList = bManager.search($id in bListIDs);
+				bList = bManager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(bManager.table_name) + " WHERE " + Manager.quoteList(bColumn, bListIDs), false);
+			}
+			else
+			{
+				bList = new List();
+			}
 		}
-	}
+	#end
 		
 	public function add(bObject:B)
 	{
 		bList.add(bObject);
-		bObject.save();
-		
-		var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
-		        else              new Relationship(bObject.id, aObject.id);
-		
-		r.insert();
+
+		#if server 
+			bObject.save();
+			
+			var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
+			        else              new Relationship(bObject.id, aObject.id);
+			
+			r.insert();
+		#end
 	}
 
 	public function remove(bObject:B)
 	{
 		bList.remove(bObject);
-		var aColumn = (isABeforeB()) ? "r1" : "r2";
-		var bColumn = (isABeforeB()) ? "r2" : "r1";
-		
-		// manager.delete($a == aObject.id && $b == bObject.id);
-		manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
+
+		#if server 
+			var aColumn = (isABeforeB()) ? "r1" : "r2";
+			var bColumn = (isABeforeB()) ? "r2" : "r1";
+			
+			// manager.delete($a == aObject.id && $b == bObject.id);
+			manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
+		#end 
 	}
 
 	public function clear()
 	{
 		bList.clear();
-		var aColumn = (isABeforeB()) ? "r1" : "r2";
-		
-		// manager.delete($a == aObject.id);
-		manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id));
+		#if server 
+			var aColumn = (isABeforeB()) ? "r1" : "r2";
+			
+			// manager.delete($a == aObject.id);
+			manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id));
+		#end 
+	}
+
+	public function setList(newBList:Iterable<B>)
+	{
+		clear();
+		for (b in newBList)
+		{
+			add (b);
+		}
 	}
 
 	public function iterator():Iterator<B>
@@ -140,23 +172,30 @@ class ManyToMany<A:Object, B:Object>
 	public function pop():B
 	{
 		var bObject = bList.pop();
-		var aColumn = (isABeforeB()) ? "r1" : "r2";
-		var bColumn = (isABeforeB()) ? "r2" : "r1";
-		
-		// manager.delete($a == aObject.id && $b == bObject.id);
-		manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
+
+		#if server
+			var aColumn = (isABeforeB()) ? "r1" : "r2";
+			var bColumn = (isABeforeB()) ? "r2" : "r1";
+			
+			// manager.delete($a == aObject.id && $b == bObject.id);
+			manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
+		#end 
+
 		return bObject;
 	}
 
 	public function push(bObject:B)
 	{
 		bList.push(bObject);
-		bObject.save();
-		
-		var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
-		        else              new Relationship(bObject.id, aObject.id);
-		
-		r.insert();	
+
+		#if server 
+			bObject.save();
+			
+			var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
+			        else              new Relationship(bObject.id, aObject.id);
+			
+			r.insert();	
+		#end 
 	}
 }
 
