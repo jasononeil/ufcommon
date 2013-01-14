@@ -88,21 +88,24 @@ class ManyToMany<A:Object, B:Object>
 		
 		// var relationships = manager.search($a == id);
 		var relationships = manager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
-		var bListIDs = relationships.map(function (r:Relationship) { return Reflect.field(r, bColumn); });
-		
-		// Search B table for our list of IDs.  
-		// bList = bManager.search($id in bListIDs);
-		var xlist = bManager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(bManager.table_name) + " WHERE " + Manager.quoteList(bColumn, bListIDs), false);
+		if (relationships.length > 0)
+		{
+			var bListIDs = relationships.map(function (r:Relationship) { return Reflect.field(r, bColumn); });
+			
+			// Search B table for our list of IDs.  
+			// bList = bManager.search($id in bListIDs);
+			bList = bManager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(bManager.table_name) + " WHERE " + Manager.quoteList(bColumn, bListIDs), false);
+		}
+		else
+		{
+			bList = new List();
+		}
 	}
 		
 	public function add(bObject:B)
 	{
 		bList.add(bObject);
-
-		if (bObject.id == null)
-			bObject.insert();
-		else
-			bObject.update();
+		bObject.save();
 		
 		var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
 		        else              new Relationship(bObject.id, aObject.id);
