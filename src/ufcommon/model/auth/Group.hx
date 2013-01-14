@@ -3,7 +3,9 @@ package ufcommon.model.auth;
 import ufcommon.db.Types;
 import ufcommon.db.Object;
 import ufcommon.db.ManyToMany;
-import ufcommon.db.Manager;
+#if server 
+	import sys.db.Manager;
+#end 
 
 import ufcommon.model.auth.Permission;
 import ufcommon.model.auth.User;
@@ -26,10 +28,18 @@ class Group extends Object
 	@:skip var _permissions:List<Permission>;
 	function get_permissions()
 	{
-		var g = this;
-		if (_permissions == null) _permissions = Permission.manager.search($group == g);
+		
+		#if server 
+			var g = this;
+			if (_permissions == null) _permissions = Permission.manager.search($group == g);
+		#else 
+			if (_permissions == null) _permissions = new List();
+		#end
+
 		return _permissions;
 	}
 
-	public static var manager:Manager<Group> = new Manager(Group);
+	#if server 
+		public static var manager:Manager<Group> = new Manager(Group);
+	#end
 }
