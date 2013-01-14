@@ -1,0 +1,5 @@
+# Editor Files
+*.sublime-*
+
+# Odd things we want to ignore
+*.TODO
