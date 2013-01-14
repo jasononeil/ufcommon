@@ -23,7 +23,7 @@ class UFMigrationController extends Controller
     function displayMigrationsAndResults(?results:Array<MigrationResults>)
     {
         var migrations = getMigrationGroups();
-        var view = new MigrationListView();
+        var view = new MigrationView();
 
         if (results != null)
         {
