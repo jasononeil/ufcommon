@@ -5,6 +5,7 @@ import ufcommon.db.Types;
 import ufcommon.db.ManyToMany;
 using Lambda;
 
+@:table("auth_user")
 class User extends Object
 {
 	public var username:SString<20>;

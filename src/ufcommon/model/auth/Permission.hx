@@ -4,6 +4,7 @@ import ufcommon.db.Types;
 import ufcommon.db.Object;
 import ufcommon.model.auth.Group;
 
+@:table("auth_permission")
 class Permission extends Object
 {
 	public var permission:SString<100>;
