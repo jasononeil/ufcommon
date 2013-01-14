@@ -4,7 +4,7 @@ import ufcommon.db.Types;
 import ufcommon.db.Object;
 import ufcommon.db.Relationship;
 
-import sys.db.Manager;
+import ufcommon.db.Manager;
 
 // Note:
 // Throughout this class, I've had to replace SPOD macro calls with the "unsafe" runtime calls.

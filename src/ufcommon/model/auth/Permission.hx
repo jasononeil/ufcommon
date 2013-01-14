@@ -3,6 +3,7 @@ package ufcommon.model.auth;
 import ufcommon.db.Types;
 import ufcommon.db.Object;
 import ufcommon.model.auth.Group;
+import ufcommon.db.Manager;
 
 @:table("auth_permission")
 class Permission extends Object
@@ -11,7 +12,7 @@ class Permission extends Object
 	@:relation(groupID)		public var group:Group;
 
 
-	public static var manager:sys.db.Manager<Permission> = new sys.db.Manager(Permission);
+	public static var manager:Manager<Permission> = new Manager(Permission);
 
 	public static function addPermission(g, p:EnumValue)
 	{

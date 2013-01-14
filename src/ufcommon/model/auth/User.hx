@@ -3,6 +3,7 @@ package ufcommon.model.auth;
 import ufcommon.db.Object;
 import ufcommon.db.Types;
 import ufcommon.db.ManyToMany;
+import ufcommon.db.Manager;
 using Lambda;
 
 @:table("auth_user")
@@ -28,6 +29,7 @@ class User extends Object
 		this.salt = Random.string(32);
 		this.password = generatePasswordHash(p, salt);
 	}
+
 
 	/** Check permissions.  if (myUser.can(DriveCar) && myUser.can(BorrowParentsCar)) { ... } */
 	public function can(e:EnumValue)
@@ -62,4 +64,5 @@ class User extends Object
 		return PBKDF2.encode(password, salt, 500, 32);
 	}
 	
+	public static var manager:Manager<User> = new Manager(User);
 }

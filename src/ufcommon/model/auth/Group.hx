@@ -3,6 +3,7 @@ package ufcommon.model.auth;
 import ufcommon.db.Types;
 import ufcommon.db.Object;
 import ufcommon.db.ManyToMany;
+import ufcommon.db.Manager;
 
 import ufcommon.model.auth.Permission;
 import ufcommon.model.auth.User;
@@ -30,5 +31,5 @@ class Group extends Object
 		return _permissions;
 	}
 
-	public static var manager:sys.db.Manager<Group> = new sys.db.Manager(Group);
+	public static var manager:Manager<Group> = new Manager(Group);
 }
