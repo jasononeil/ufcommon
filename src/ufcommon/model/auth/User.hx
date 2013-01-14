@@ -15,13 +15,6 @@ class User extends Object
 
 	@:skip @:manyToMany		public var groups(get,null):ManyToMany<User, Group>;
 
-	@:skip var _groups:ManyToMany<User, Group>;
-	function get_groups()
-	{
-		if (_groups == null) _groups = new ManyToMany(this, Group);
-		return _groups;
-	}
-
 	public function new(u:String, p:String)
 	{
 		super();
@@ -30,6 +23,12 @@ class User extends Object
 		this.password = generatePasswordHash(p, salt);
 	}
 
+	@:skip var _groups:ManyToMany<User, Group>;
+	function get_groups()
+	{
+		if (_groups == null) _groups = new ManyToMany(this, Group);
+		return _groups;
+	}
 
 	/** Check permissions.  if (myUser.can(DriveCar) && myUser.can(BorrowParentsCar)) { ... } */
 	public function can(e:EnumValue)
