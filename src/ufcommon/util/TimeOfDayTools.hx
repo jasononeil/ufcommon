@@ -1,10 +1,11 @@
 package ufcommon.util;
 
 import ufcommon.db.Types;
+using StringTools;
 
 class TimeOfDayTools
 {
-	/** From a string "HH:MM:DD" (24hr time) to an Int, reflecting the number of seconds into the day */
+	/** From a string "HH:MM:SS" (24hr time) to an Int, reflecting the number of seconds into the day */
 	static public function stringToTime(str:String):TimeOfDay
 	{
 		var hour:Int = 0;
@@ -24,6 +25,14 @@ class TimeOfDayTools
 		}
 
 		return hour*3600 + min*60 + sec;
+	}
+
+	static public function timeToString(t:TimeOfDay)
+	{
+		var hour = Std.string(getHours(t)).lpad("0", 2);
+		var min = Std.string(getMinutes(t)).lpad("0", 2);
+		var sec = Std.string(getSeconds(t)).lpad("0", 2);
+		return '$hour:$min:$sec';
 	}
 
 	static inline public function getHours(t:TimeOfDay):Int
