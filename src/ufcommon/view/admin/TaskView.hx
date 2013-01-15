@@ -38,7 +38,7 @@ class TaskSet extends Widget
 			var loopItem:TaskSet_IndividualTask = cast taskList.findItem(t).dom;
 			for (inputName in t.inputs)
 			{
-				var i = '<input type="text" name="task_$(t.name)_$inputName" placeholder="$inputName" title="$inputName" />'.parse();
+				var i = '<input type="text" name="task_${t.name}_$inputName" placeholder="$inputName" title="$inputName" />'.parse();
 				loopItem.taskInputsContainer.append(i);
 			}
 		}
