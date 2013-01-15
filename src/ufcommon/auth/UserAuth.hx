@@ -6,6 +6,7 @@ import ufront.auth.IAuthAdapter;
 import ufront.auth.Auth;
 import ufcommon.model.auth.User;
 import ufcommon.auth.DBUserAuthAdapter;
+import ufcommon.auth.PermissionErrors;
 
 class UserAuth
 {
