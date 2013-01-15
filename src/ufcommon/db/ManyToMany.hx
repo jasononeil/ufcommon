@@ -108,7 +108,7 @@ class ManyToMany<A:Object, B:Object>
 				
 				// Search B table for our list of IDs.  
 				// bList = bManager.search($id in bListIDs);
-				bList = bManager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(bManager.table_name) + " WHERE " + Manager.quoteList(bColumn, bListIDs), false);
+				bList = bManager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(bManager.table_name) + " WHERE " + Manager.quoteList("id", bListIDs), false);
 			}
 			else
 			{
