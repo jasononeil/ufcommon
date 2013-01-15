@@ -31,7 +31,7 @@ class Group extends Object
 		
 		#if server 
 			var g = this;
-			if (_permissions == null) _permissions = Permission.manager.search($group == g);
+			if (_permissions == null) _permissions = Permission.manager.search($groupID == g.id);
 		#else 
 			if (_permissions == null) _permissions = new List();
 		#end
