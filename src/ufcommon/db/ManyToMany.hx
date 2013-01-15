@@ -1,12 +1,13 @@
 package ufcommon.db;
 
-import ufcommon.db.Types;
-import ufcommon.db.Object;
-import ufcommon.db.Relationship;
-
 #if server 
 	import sys.db.Manager;
-#end 
+	import sys.db.Types;
+#else 
+	import ufcommon.db.Types;
+#end
+import ufcommon.db.Object;
+import ufcommon.db.Relationship; 
 
 // Note:
 // Throughout this class, I've had to replace SPOD macro calls with the "unsafe" runtime calls.

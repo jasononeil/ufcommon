@@ -1,11 +1,15 @@
 package ufcommon.db;
 
-import ufcommon.db.Types;
+#if server 
+	import sys.db.Types;
+#else 
+	import ufcommon.db.Types;
+#end
 
 #if (neko || php || cpp)
 	class Object extends sys.db.Object
 	{
-		public var id:SId;
+		public var id:SUId;
 		public var created:SDateTime;
 		public var modified:SDateTime;
 

@@ -1,11 +1,12 @@
 package ufcommon.db;
 
-import ufcommon.db.Types;
-import ufcommon.db.Object;
+import ufcommon.db.Object; 
 #if server 
 	import sys.db.Manager;
-#end 
-
+	import sys.db.Types;
+#else 
+	import ufcommon.db.Types;
+#end
 class Relationship extends Object
 {
 	public var r1:SInt;

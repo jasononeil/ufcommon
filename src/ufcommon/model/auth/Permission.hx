@@ -1,11 +1,13 @@
 package ufcommon.model.auth;
 
-import ufcommon.db.Types;
 import ufcommon.db.Object;
-import ufcommon.model.auth.Group;
+import ufcommon.model.auth.Group; 
 #if server 
 	import sys.db.Manager;
-#end 
+	import sys.db.Types;
+#else 
+	import ufcommon.db.Types;
+#end
 
 @:table("auth_group_permission")
 class Permission extends Object

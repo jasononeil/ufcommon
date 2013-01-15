@@ -1,73 +1,70 @@
 package ufcommon.db;
 
-class Types
-{
-
-}
+class Types {}
 
 // A complete copy of sys.db.Types, but available for client targets too...
 
 // basic types
 
 /** int with auto increment **/
-typedef SId = Int
+typedef SId = Int;
 
 /** int unsigned with auto increment **/
-typedef SUId = Int
+typedef SUId = Int;
 
 /** big int with auto increment **/
-typedef SBigId = Float
+typedef SBigId = Float;
 
-typedef SInt = Int
+typedef SInt = Int;
 
-typedef SUInt = Int
+typedef SUInt = Int;
 
-typedef SBigInt = Float
+typedef SBigInt = Float;
 
 /** single precision float **/
-typedef SSingle = Float
+typedef SSingle = Float;
 
 /** double precision float **/
-typedef SFloat = Float
+typedef SFloat = Float;
 
 /** use tinyint(1) to distinguish with int **/
-typedef SBool = Bool
+typedef SBool = Bool;
 
 /** same as varchar(n) **/
-typedef SString<Const> = String
+typedef SString<Const> = String;
 
 /** date only, use SDateTime for date+time **/
-typedef SDate = Date
+typedef SDate = Date;
 
 /** mysql DateTime **/
-typedef SDateTime = Date
+typedef SDateTime = Date;
 
 /** mysql Timestamp **/
-typedef STimeStamp = Date
+typedef STimeStamp = Date;
 
 /** TinyText (up to 255 bytes) **/
-typedef STinyText = String
+typedef STinyText = String;
 
 /** Text (up to 64KB) **/
-typedef SSmallText = String
+typedef SSmallText = String;
 
 /** MediumText (up to 24MB) **/
-typedef SText = String
+typedef SText = String;
 
 /** Blob type (up to 64KB) **/
-typedef SSmallBinary = haxe.io.Bytes
+typedef SSmallBinary = haxe.io.Bytes;
 
 /** LongBlob type (up to 4GB) **/
-typedef SLongBinary = haxe.io.Bytes
+typedef SLongBinary = haxe.io.Bytes;
 
 /** MediumBlob type (up to 24MB) **/
-typedef SBinary = haxe.io.Bytes
+typedef SBinary = haxe.io.Bytes;
 
 /** same as binary(n) **/
-typedef SBytes<Const> = haxe.io.Bytes
+typedef SBytes<Const> = haxe.io.Bytes;
 
 /** one byte signed [-128...127] **/
-typedef STinyInt = Int
+typedef STinyInt = Int;
 
 /** two bytes signed [-32768...32767] **/
 typedef SSmallInt = Int;
@@ -87,16 +84,16 @@ typedef SMediumUInt = Int;
 // extra
 
 /** specify that this field is nullable **/
-typedef SNull<T> = T
+typedef SNull<T> = T;
 
 /** specify that the integer use custom encoding **/
-typedef SEncoded = Int
+typedef SEncoded = Int;
 
 /** haxe Serialized string **/
-typedef SSerialized = String
+typedef SSerialized = String;
 
 /** native neko serialized bytes **/
-typedef SNekoSerialized = haxe.io.Bytes
+typedef SNekoSerialized = haxe.io.Bytes;
 
 /** a set of bitflags of different enum values **/
 typedef SFlags<T:EnumValue> = haxe.EnumFlags<T>
@@ -105,8 +102,9 @@ typedef SFlags<T:EnumValue> = haxe.EnumFlags<T>
 typedef SSmallFlags<T:EnumValue> = SFlags<T>;
 
 /** allow to store any value in serialized form **/
-typedef SData<T> = T
+typedef SData<T> = T;
 
 /** allow to store an enum value that does not have parameters as a simple int **/
-typedef SEnum<E:EnumValue> = E
+typedef SEnum<E:EnumValue> = E;
+
 

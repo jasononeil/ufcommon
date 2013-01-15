@@ -1,8 +1,12 @@
 package ufcommon.model.admin;
 
-import ufcommon.db.Object;
-import ufcommon.db.Types;
 import haxe.Json;
+import ufcommon.db.Object;
+#if server 
+	import sys.db.Types;
+#else 
+	import ufcommon.db.Types;
+#end
 
 @:table("_admintasklog")
 class AdminTaskLog extends Object

@@ -1,7 +1,11 @@
 package ufcommon.db;
 
 import ufcommon.db.Object;
-import sys.db.Types;
+#if server 
+	import sys.db.Types;
+#else 
+	import ufcommon.db.Types;
+#end
 import sys.db.Connection;
 import sys.db.SpodInfos;
 

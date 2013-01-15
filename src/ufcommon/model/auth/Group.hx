@@ -1,11 +1,13 @@
 package ufcommon.model.auth;
 
-import ufcommon.db.Types;
 import ufcommon.db.Object;
-import ufcommon.db.ManyToMany;
+import ufcommon.db.ManyToMany; 
 #if server 
 	import sys.db.Manager;
-#end 
+	import sys.db.Types;
+#else 
+	import ufcommon.db.Types;
+#end
 
 import ufcommon.model.auth.Permission;
 import ufcommon.model.auth.User;
