@@ -112,7 +112,7 @@ class UFTaskController extends Controller
         {
             for (inputName in currentTask.inputs)
             {
-                var postName = 'task_$(taskName)_$(inputName)';
+                var postName = 'task_${taskName}_${inputName}';
                 if (post.exists(postName))
                 {
                     var varValue = post.get(postName);
