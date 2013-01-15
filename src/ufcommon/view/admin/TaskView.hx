@@ -60,7 +60,7 @@ class TaskSet extends Widget
 
 class TaskResultView extends Widget 
 {
-	public var results:WidgetLoop<{task:String, description:String, output:String}>;
+	public var results:WidgetLoop<{task:String, description:String, output:String, timeTaken:String}>;
 
 	public function new()
 	{

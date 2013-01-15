@@ -11,6 +11,7 @@ import detox.DetoxLayout;
 
 using Detox;
 using Lambda;
+using ufcommon.util.TimeOfDayTools;
 
 class UFTaskController extends Controller
 {
@@ -64,7 +65,8 @@ class UFTaskController extends Controller
             view.results.addItem({
                 task: task.title,
                 description: (task.description == "") ? "..." : task.description,
-                output: result.result.output
+                output: result.result.output,
+                timeTaken: result.timeTaken
             });
         }
 
@@ -82,7 +84,8 @@ class UFTaskController extends Controller
         view.results.addItem({
             task: result.task.title,
             description: (result.task.description == "") ? "..." : result.task.description,
-            output: result.result.output
+            output: result.result.output,
+            timeTaken: result.timeTaken
         });
 
         return new DetoxResult(view, UFAdminController.getLayout());
@@ -127,11 +130,16 @@ class UFTaskController extends Controller
         }
 
         // Execute the task
+        var startTime = Date.now().getTime();
         var result = ts.run(taskName, taskInputs);
+        var timeTaken = Std.int((Date.now().getTime() - startTime) / 1000);
+        var timeTakenStr = timeTaken.timeToString();
+
         return {
             ts: ts,
             task: currentTask,
-            result: result
+            result: result,
+            timeTaken: timeTakenStr
         };
     }
 
