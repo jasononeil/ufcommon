@@ -47,6 +47,7 @@ package ufcommon.db;
 		}
 	}
 #else 
+	@:keepSub
 	class Object implements haxe.rtti.Infos
 	{
 		public var id:SId;
