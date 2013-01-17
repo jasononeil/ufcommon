@@ -14,7 +14,7 @@ using Lambda;
 
 class User extends Object
 {
-	public var username:SString<20>;
+	public var username:SString<40>;
 	public var salt:SString<32>;
 	public var password:SString<32>;
 
