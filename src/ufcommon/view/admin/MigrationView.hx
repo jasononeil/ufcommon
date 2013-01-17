@@ -7,9 +7,9 @@ using Detox;
 
 class MigrationView extends Widget 
 {
-	public var runUp:WidgetLoop<String>;
-	public var runDown:WidgetLoop<String>;
-	public var alreadyRun:WidgetLoop<String>;
+	public var runUp:WidgetLoop<String, MigrationView_MigrationRowUp>;
+	public var runDown:WidgetLoop<String, MigrationView_MigrationRowDown>;
+	public var alreadyRun:WidgetLoop<String, MigrationView_MigrationRowDown>;
 
 	public function new()
 	{

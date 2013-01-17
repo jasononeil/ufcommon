@@ -7,7 +7,7 @@ using Detox;
 
 class TaskView extends Widget 
 {
-	public var taskSets:WidgetLoop<AdminTaskSet>;
+	public var taskSets:WidgetLoop<AdminTaskSet, TaskSet>;
 	public function new()
 	{
 		super();
@@ -20,7 +20,7 @@ class TaskView extends Widget
 class TaskSet extends Widget 
 {
 	@:isVar public var taskSet(default,set):AdminTaskSet;
-	public var taskList:WidgetLoop<AdminTaskSet.Task>;
+	public var taskList:WidgetLoop<AdminTaskSet.Task, TaskSet_IndividualTask>;
 	public var tasks(null,set):Array<AdminTaskSet.Task>;
 	
 	public function new()
@@ -60,7 +60,7 @@ class TaskSet extends Widget
 
 class TaskResultView extends Widget 
 {
-	public var results:WidgetLoop<{task:String, description:String, output:String, timeTaken:String}>;
+	public var results:WidgetLoop<{task:String, description:String, output:String, timeTaken:String}, TaskResultView_Result>;
 
 	public function new()
 	{
