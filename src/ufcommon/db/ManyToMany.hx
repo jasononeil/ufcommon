@@ -8,6 +8,7 @@ package ufcommon.db;
 #end
 import ufcommon.db.Object;
 import ufcommon.db.Relationship; 
+using Lambda;
 
 // Note:
 // Throughout this class, I've had to replace SPOD macro calls with the "unsafe" runtime calls.
@@ -102,14 +103,14 @@ class ManyToMany<A:Object, B:Object>
 			var bColumn = (isABeforeB()) ? "r2" : "r1";
 			
 			// var relationships = manager.search($a == id);
-			var relationships = manager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
+			var relationships = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
 			if (relationships.length > 0)
 			{
 				var bListIDs = relationships.map(function (r:Relationship) { return Reflect.field(r, bColumn); });
 				
 				// Search B table for our list of IDs.  
 				// bList = bManager.search($id in bListIDs);
-				bList = bManager.unsafeObjects("SELECT * FROM " + Manager.quoteAny(bManager.table_name) + " WHERE " + Manager.quoteList("id", bListIDs), false);
+				bList = bManager.unsafeObjects("SELECT * FROM `" + bManager.table_name + "` WHERE " + Manager.quoteList("id", bListIDs), false);
 			}
 			else
 			{
@@ -117,19 +118,25 @@ class ManyToMany<A:Object, B:Object>
 			}
 		}
 	#end
-		
+	
+	/** Add a related object by creating a new Relationship on the appropriate join table.
+	If the object you are adding does not have an ID, insert() will be called so that a valid
+	ID can be obtained. */
 	public function add(bObject:B)
 	{
-		bList.add(bObject);
+		if (bList.has(bObject) == false)
+		{
+			bList.add(bObject);
 
-		#if server 
-			bObject.save();
-			
-			var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
-			        else              new Relationship(bObject.id, aObject.id);
-			
-			r.insert();
-		#end
+			#if server 
+				if (bObject.id == null) bObject.insert();
+				
+				var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
+				        else              new Relationship(bObject.id, aObject.id);
+				
+				r.insert();
+			#end
+		}
 	}
 
 	public function remove(bObject:B)
@@ -141,7 +148,7 @@ class ManyToMany<A:Object, B:Object>
 			var bColumn = (isABeforeB()) ? "r2" : "r1";
 			
 			// manager.delete($a == aObject.id && $b == bObject.id);
-			manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
+			manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
 		#end 
 	}
 
@@ -152,7 +159,7 @@ class ManyToMany<A:Object, B:Object>
 			var aColumn = (isABeforeB()) ? "r1" : "r2";
 			
 			// manager.delete($a == aObject.id);
-			manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id));
+			manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id));
 		#end 
 	}
 
@@ -179,7 +186,7 @@ class ManyToMany<A:Object, B:Object>
 			var bColumn = (isABeforeB()) ? "r2" : "r1";
 			
 			// manager.delete($a == aObject.id && $b == bObject.id);
-			manager.unsafeDelete("DELETE FROM " + Manager.quoteAny(tableName) + " WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
+			manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
 		#end 
 
 		return bObject;
@@ -187,16 +194,7 @@ class ManyToMany<A:Object, B:Object>
 
 	public function push(bObject:B)
 	{
-		bList.push(bObject);
-
-		#if server 
-			bObject.save();
-			
-			var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
-			        else              new Relationship(bObject.id, aObject.id);
-			
-			r.insert();	
-		#end 
+		add(bObject);
 	}
 }
 
