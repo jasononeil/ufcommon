@@ -173,7 +173,12 @@ class ManyToMany<A:Object, B:Object>
 
 	public function setList(newBList:Iterable<B>)
 	{
-		clear();
+		// Get rid of old ones
+		for (oldB in bList)
+		{
+			if (newBList.has(oldB) == false) remove(oldB);
+		}
+		// And add new ones
 		for (b in newBList)
 		{
 			add (b);
