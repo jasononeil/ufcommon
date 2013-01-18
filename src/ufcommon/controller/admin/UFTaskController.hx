@@ -8,7 +8,7 @@ import ufcommon.view.admin.TaskView;
 import ufcommon.AdminTaskSet;
 
 import detox.DetoxLayout;
-
+import haxe.CallStack;
 using Detox;
 using Lambda;
 using ufcommon.util.TimeOfDayTools;
@@ -47,7 +47,13 @@ class UFTaskController extends Controller
         }
         catch (e:String)
         {
-            return new DetoxResult(e.parse(), UFAdminController.getLayout());
+            var callStack = CallStack.toString(CallStack.callStack());
+            var exceptionStack = CallStack.toString(CallStack.exceptionStack());
+            var output = '<h1>Error:</h1>
+            <h4>$e</h4>
+            <h5>Exception Stack:</h5>
+            <pre>$exceptionStack</pre>';
+            return new DetoxResult(output.parse(), UFAdminController.getLayout());
         }
     }
 
