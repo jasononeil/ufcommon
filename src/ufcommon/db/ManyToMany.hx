@@ -187,9 +187,9 @@ class ManyToMany<A:Object, B:Object>
 
 	public function pop():B
 	{
+		var bObject = bList.pop();
 		if (bObject != null && aObject != null)
 		{
-			var bObject = bList.pop();
 
 			#if server
 				var aColumn = (isABeforeB()) ? "r1" : "r2";
