@@ -98,21 +98,24 @@ class ManyToMany<A:Object, B:Object>
 		@:access(sys.db.Manager)
 		public function refreshList()
 		{
-			var id = aObject.id;
-			var aColumn = (isABeforeB()) ? "r1" : "r2";
-			var bColumn = (isABeforeB()) ? "r2" : "r1";
-			
-			// var relationships = manager.search($a == id);
-			var relationships = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
-			if (relationships.length > 0)
+			if (aObject != null)
 			{
-				var bListIDs = relationships.map(function (r:Relationship) { return Reflect.field(r, bColumn); });
+				var id = aObject.id;
+				var aColumn = (isABeforeB()) ? "r1" : "r2";
+				var bColumn = (isABeforeB()) ? "r2" : "r1";
 				
-				// Search B table for our list of IDs.  
-				// bList = bManager.search($id in bListIDs);
-				bList = bManager.unsafeObjects("SELECT * FROM `" + bManager.table_name + "` WHERE " + Manager.quoteList("id", bListIDs), false);
+				// var relationships = manager.search($a == id);
+				var relationships = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
+				if (relationships.length > 0)
+				{
+					var bListIDs = relationships.map(function (r:Relationship) { return Reflect.field(r, bColumn); });
+					
+					// Search B table for our list of IDs.  
+					// bList = bManager.search($id in bListIDs);
+					bList = bManager.unsafeObjects("SELECT * FROM `" + bManager.table_name + "` WHERE " + Manager.quoteList("id", bListIDs), false);
+				}
 			}
-			else
+			if (bList == null)
 			{
 				bList = new List();
 			}
@@ -124,7 +127,7 @@ class ManyToMany<A:Object, B:Object>
 	ID can be obtained. */
 	public function add(bObject:B)
 	{
-		if (bList.has(bObject) == false)
+		if (bObject != null && bList.has(bObject) == false)
 		{
 			bList.add(bObject);
 
@@ -141,25 +144,30 @@ class ManyToMany<A:Object, B:Object>
 
 	public function remove(bObject:B)
 	{
-		bList.remove(bObject);
+		if (bObject != null)
+		{
+			bList.remove(bObject);
 
-		#if server 
-			var aColumn = (isABeforeB()) ? "r1" : "r2";
-			var bColumn = (isABeforeB()) ? "r2" : "r1";
-			
-			// manager.delete($a == aObject.id && $b == bObject.id);
-			manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
-		#end 
+			#if server 
+				var aColumn = (isABeforeB()) ? "r1" : "r2";
+				var bColumn = (isABeforeB()) ? "r2" : "r1";
+				
+				// manager.delete($a == aObject.id && $b == bObject.id);
+				manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
+			#end 
+		}
 	}
 
 	public function clear()
 	{
 		bList.clear();
 		#if server 
-			var aColumn = (isABeforeB()) ? "r1" : "r2";
-			
-			// manager.delete($a == aObject.id);
-			manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id));
+			if (aObject != null)
+			{
+				var aColumn = (isABeforeB()) ? "r1" : "r2";
+				// manager.delete($a == aObject.id);
+				manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id));
+			}
 		#end 
 	}
 
@@ -179,15 +187,18 @@ class ManyToMany<A:Object, B:Object>
 
 	public function pop():B
 	{
-		var bObject = bList.pop();
+		if (bObject != null && aObject != null)
+		{
+			var bObject = bList.pop();
 
-		#if server
-			var aColumn = (isABeforeB()) ? "r1" : "r2";
-			var bColumn = (isABeforeB()) ? "r2" : "r1";
-			
-			// manager.delete($a == aObject.id && $b == bObject.id);
-			manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
-		#end 
+			#if server
+				var aColumn = (isABeforeB()) ? "r1" : "r2";
+				var bColumn = (isABeforeB()) ? "r2" : "r1";
+				
+				// manager.delete($a == aObject.id && $b == bObject.id);
+				manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
+			#end 
+		}
 
 		return bObject;
 	}
