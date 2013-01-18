@@ -39,7 +39,7 @@ class AdminTaskSet implements haxe.rtti.Infos
 			if (Reflect.hasField(thisFieldMeta, 'task'))
 			{
 				var taskTitle = (thisFieldMeta.task != null) ? thisFieldMeta.task[0] : fieldName;
-				var taskDescription = Reflect.hasField(thisFieldMeta, "taskDescription") ? thisFieldMeta.taskDescription[0] : "";
+				var taskDescription = Reflect.hasField(thisFieldMeta, "description") ? thisFieldMeta.description[0] : "";
 				var taskInputs = getTaskInputs(fieldName);
 
 				// Look for any previous runs, and try to get the last date the task was run
