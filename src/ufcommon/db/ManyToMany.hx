@@ -24,7 +24,6 @@ using Lambda;
 
 class ManyToMany<A:Object, B:Object>
 {
-	
 	var a:Class<A>;
 	var b:Class<B>;
 	var aObject:A;
@@ -41,7 +40,6 @@ class ManyToMany<A:Object, B:Object>
 
 	public function new(aObject:A, bClass:Class<B>)
 	{
-
 		#if server 
 			this.a = Type.getClass(aObject);
 			this.b = bClass;
@@ -65,32 +63,32 @@ class ManyToMany<A:Object, B:Object>
 		#end 
 	}
 	
-	function isABeforeB()
-	{
-		// Get the names (class name, last section after package list, lower case)
-		var aName = Type.getClassName(a).split('.').pop();
-		var bName = Type.getClassName(b).split('.').pop();
-		var arr = [a,b];
-		arr.sort(function(x,y) return Reflect.compare(x,y));
-		return (arr[0] == a);
-	}
-		
-	static public function generateTableName(a:Class<Dynamic>, b:Class<Dynamic>)
-	{
-		// Get the names (class name, last section after package list, lower case)
-		var aName = Type.getClassName(a).split('.').pop();
-		var bName = Type.getClassName(b).split('.').pop();
-
-		// Sort the names alphabetically, so we don't end up with 2 join tables...
-		var arr = [aName,bName];
-		arr.sort(function(x,y) return Reflect.compare(x,y));
-
-		// Join the names - eg join_SchoolClass_Student
-		arr.unshift("_join");
-		return arr.join('_');
-	}
-
 	#if server 
+		function isABeforeB()
+		{
+			// Get the names (class name, last section after package list)
+			var aName = Type.getClassName(a).split('.').pop();
+			var bName = Type.getClassName(b).split('.').pop();
+			var arr = [aName,bName];
+			arr.sort(function(x,y) return Reflect.compare(x,y));
+			return (arr[0] == aName);
+		}
+			
+		static public function generateTableName(a:Class<Dynamic>, b:Class<Dynamic>)
+		{
+			// Get the names (class name, last section after package list)
+			var aName = Type.getClassName(a).split('.').pop();
+			var bName = Type.getClassName(b).split('.').pop();
+
+			// Sort the names alphabetically, so we don't end up with 2 join tables...
+			var arr = [aName,bName];
+			arr.sort(function(x,y) return Reflect.compare(x,y));
+
+			// Join the names - eg join_SchoolClass_Student
+			arr.unshift("_join");
+			return arr.join('_');
+		}
+		
 		@:access(sys.db.Manager)
 		function setTableName(name:String)
 		{
