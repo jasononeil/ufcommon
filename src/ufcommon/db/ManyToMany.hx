@@ -29,6 +29,8 @@ class ManyToMany<A:Object, B:Object>
 	var b:Class<B>;
 	var aObject:A;
 	var bList:List<B>;
+
+	public var length(get,null):Int;
 	
 	#if server 
 		var tableName:String;
@@ -211,6 +213,11 @@ class ManyToMany<A:Object, B:Object>
 	public function push(bObject:B)
 	{
 		add(bObject);
+	}
+
+	inline function get_length()
+	{
+		return bList.length;
 	}
 }
 
