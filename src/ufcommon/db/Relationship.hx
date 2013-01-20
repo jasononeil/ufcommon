@@ -9,8 +9,8 @@ import ufcommon.db.Object;
 #end
 class Relationship extends Object
 {
-	public var r1:SInt;
-	public var r2:SInt;
+	public var r1:SUInt;
+	public var r2:SUInt;
 	
 	public function new(r1:Int, r2:Int)
 	{
