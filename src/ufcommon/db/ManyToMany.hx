@@ -121,6 +121,11 @@ class ManyToMany<A:Object, B:Object>
 			}
 		}
 	#end
+
+	public inline function first()
+	{
+		return bList.first();
+	}
 	
 	/** Add a related object by creating a new Relationship on the appropriate join table.
 	If the object you are adding does not have an ID, insert() will be called so that a valid
