@@ -16,7 +16,7 @@ class User extends Object
 {
 	public var username:SString<40>;
 	public var salt:SString<32>;
-	public var password:SString<32>;
+	public var password:SString<64>;
 
 	@:skip @:manyToMany		public var groups(get,null):ManyToMany<User, Group>;
 
