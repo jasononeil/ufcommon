@@ -1,6 +1,6 @@
 package ufcommon.auth;
 
-enum PermissionErrors 
+@:keep enum PermissionErrors 
 {
 	NotLoggedIn(msg:String);
 	DoesNotHavePermission(msg:String);
