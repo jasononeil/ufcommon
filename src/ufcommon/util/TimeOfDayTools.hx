@@ -53,7 +53,6 @@ class TimeOfDayTools
 		return t % 60;
 	}
 
-
 	static public function timeToDate(t:TimeOfDay, ?d:Date)
 	{
 		if (d == null) d = Date.now();
@@ -63,6 +62,19 @@ class TimeOfDayTools
 		var sec = getSeconds(t);
 
 		return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour, min, sec);
+	}
+
+	static public function timeFromDate(d:Date)
+	{
+		var hour = d.getHours();
+		var min = d.getMinutes();
+		var sec = d.getSeconds();
+		return hour*3600 + min*60 + sec;
+	}
+
+	static inline public function now():TimeOfDay
+	{
+		return timeFromDate(Date.now());
 	}
 }
 
