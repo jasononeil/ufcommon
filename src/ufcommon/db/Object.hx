@@ -36,6 +36,7 @@ package ufcommon.db;
 			{
 				try 
 				{
+					untyped this._lock = true;
 					update();
 				}
 				catch (e:Dynamic)
