@@ -127,6 +127,8 @@ class Migration extends Object
 		downCommands.unshift(MigrationHelpers.dropTableSql(m, tableName));
 	}
 
+	// ALTER TABLE `Student` ADD `rollGroupID` INT( 10 ) UNSIGNED NOT NULL 
+
 	public static var manager = new sys.db.Manager<Migration>(Migration);
 }
 
