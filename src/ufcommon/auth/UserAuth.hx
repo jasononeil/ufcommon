@@ -61,7 +61,7 @@ class UserAuth
 		{
 			if (_sessionStorage == null)
 			{
-				_sessionStorage = new SessionStorage(FileSession.create('sessions', sessionLength));
+				_sessionStorage = new SessionStorage(FileSession.create(neko.Web.getCwd() + 'sessions', sessionLength));
 			}
 			return _sessionStorage;
 		}
