@@ -30,6 +30,15 @@ class User extends Object
 		#end 
 	}
 
+	/** Generate a new salt and password.  You will need to call save() yourself */
+	public function setPassword(password:String)
+	{
+		#if server 
+			this.salt = Random.string(32);
+			this.password = generatePasswordHash(password, salt);
+		#end
+	}
+
 	@:skip var _groups:ManyToMany<User, Group>;
 	function get_groups()
 	{
