@@ -59,6 +59,7 @@ package ufcommon.db;
 		
 		// Currently not implemented, but we should...
 		
+		public function save()   { throw "Not implemented yet."; } // Remoting call (or saves to local storage and wait for a sync()?) 
 		public function delete() { throw "Not implemented yet."; } // Remoting call (or saves to local storage and wait for a sync()?) 
 		public function insert() { throw "Not implemented yet."; } // Remoting call (or saves to local storage and wait for a sync()?)
 		public function update() { throw "Not implemented yet."; } // Remoting call (or saves to local storage and wait for a sync()?)
