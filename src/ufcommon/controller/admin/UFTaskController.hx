@@ -12,6 +12,7 @@ import haxe.CallStack;
 using Detox;
 using Lambda;
 using ufcommon.util.TimeOfDayTools;
+using StringTools;
 
 class UFTaskController extends Controller
 {
@@ -47,6 +48,7 @@ class UFTaskController extends Controller
         }
         catch (e:String)
         {
+            e = e.htmlEscape();
             var callStack = CallStack.toString(CallStack.callStack());
             var exceptionStack = CallStack.toString(CallStack.exceptionStack());
             var output = '<h1>Error:</h1>
