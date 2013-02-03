@@ -17,6 +17,7 @@ class User extends Object
 	public var username:SString<40>;
 	public var salt:SString<32>;
 	public var password:SString<64>;
+	public var forcePasswordChange:Bool;
 
 	@:skip @:manyToMany		public var groups(get,null):ManyToMany<User, Group>;
 
@@ -27,6 +28,7 @@ class User extends Object
 			this.username = u;
 			this.salt = Random.string(32);
 			this.password = generatePasswordHash(p, salt);
+			this.forcePasswordChange = false;
 		#end 
 	}
 
