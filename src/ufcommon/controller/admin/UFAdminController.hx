@@ -8,6 +8,10 @@ import ufcommon.view.admin.AdminView;
 import ufcommon.view.admin.*;
 import ufcommon.db.Migration;
 
+import ufcommon.model.auth.User;
+import ufcommon.model.auth.Permission;
+import ufcommon.auth.UserAuth;
+
 import detox.DetoxLayout;
 
 using Detox;
@@ -36,6 +40,7 @@ class UFAdminController extends Controller
 
     public function index() 
     {
+        checkAuth();
         checkTablesExists();
         var view = new AdminView();
         return new DetoxResult(view, getLayout());
@@ -43,6 +48,7 @@ class UFAdminController extends Controller
 
     public function notFound() 
     {
+        checkAuth();
         var view = "Page not found.".parse();
         return new DetoxResult(view, getLayout());
     }
@@ -63,5 +69,14 @@ class UFAdminController extends Controller
         var server = neko.Web.getClientHeader("Host");
         layout.head.append('<base href="http://$server$prefix/" />'.parse());
         return layout;
+    }
+
+    public static function checkAuth()
+    {
+        var permissionID = Permission.getPermissionID(UFAdminPermissions.CanAccessAdminArea);
+        if (Permission.manager.count($permission == permissionID) > 0)
+        {
+            UserAuth.requirePermission(UFAdminPermissions.CanAccessAdminArea);
+        }
     }
 }

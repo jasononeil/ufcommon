@@ -17,6 +17,7 @@ class UFMigrationController extends Controller
 {
     public function viewMigrations()
     {
+        UFAdminController.checkAuth();
         return displayMigrationsAndResults();
     }
 
@@ -44,6 +45,7 @@ class UFMigrationController extends Controller
 
     public function runMigrations() 
     {
+        UFAdminController.checkAuth();
         var migrations = getMigrationGroups();
 
         var results:Array<MigrationResults> = [];
@@ -64,6 +66,7 @@ class UFMigrationController extends Controller
 
     public function runMigrationUp() 
     {
+        UFAdminController.checkAuth();
         try 
         {
             var postData = this.controllerContext.request.post;
@@ -96,6 +99,7 @@ class UFMigrationController extends Controller
 
     public function runMigrationDown() 
     {
+        UFAdminController.checkAuth();
         try 
         {
             var postData = this.controllerContext.request.post;

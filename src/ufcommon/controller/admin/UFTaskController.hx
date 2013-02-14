@@ -18,6 +18,7 @@ class UFTaskController extends Controller
 {
     public function viewTasks()
     {
+        UFAdminController.checkAuth();
         var view = new TaskView();
         var taskSets:List<Class<AdminTaskSet>> = cast CompileTime.getAllClasses(AdminTaskSet);
         view.taskSets.addList(taskSets.map(function (ts) { return Type.createInstance(ts, []); }));
@@ -26,6 +27,7 @@ class UFTaskController extends Controller
 
     public function run()
     {
+        UFAdminController.checkAuth();
         try 
         {
             var post = this.controllerContext.request.post;
