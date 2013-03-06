@@ -34,6 +34,7 @@ class UFAdminController extends Controller
         .addRoute(prefix + "/migrations/runsingle/down/", { controller : "UFMigrationController", action : "runMigrationDown" } )
         .addRoute(prefix + "/tasks/", { controller : "UFTaskController", action : "viewTasks" } )
         .addRoute(prefix + "/tasks/run/", { controller : "UFTaskController", action : "run" } )
+        .addRoute("/db{?*rest}", { controller : "SpodAdminController", action : "runSpodAdmin" } )
         .addRoute(prefix + "/{?*rest}", { controller : "UFAdminController", action : "notFound" } )
         ;
     }
