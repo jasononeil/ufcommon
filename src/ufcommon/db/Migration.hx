@@ -140,7 +140,7 @@ typedef MigrationResults = {
 class MigrationHelpers 
 {
 	// We need a manager, but managers are tied to a specific model, though that doesn't matter to us here.
-	// For now I'll use the User manager, but a more generic solution would be nice
+	// We'll just use the manager for our Migration table :)
 	static var manager = Migration.manager;
 	
 	public static function quote(v:String):String {
@@ -152,13 +152,17 @@ class MigrationHelpers
 		return sys.db.TableCreate.getTypeSQL(t, dbName);
 	}
 
-	public static function createTableSql(mngr:sys.db.Manager<sys.db.Object>, ?tableName:String, ?engine:String)
+	public static function getDBName()
 	{
 		var cnx : Connection = sys.db.Manager.cnx;
 		if( cnx == null )
 			throw "SQL Connection not initialized on Manager";
-		var dbName = cnx.dbName();
+		return cnx.dbName();
+	}
 
+	public static function createTableSql(mngr:sys.db.Manager<sys.db.Object>, ?tableName:String, ?engine:String)
+	{
+		var dbName = getDBName();
 		var infos = mngr.dbInfos();
 		if (tableName == null) tableName = infos.name;
 		var sql = "CREATE TABLE " + quote(tableName) + " (";
@@ -199,6 +203,16 @@ class MigrationHelpers
 		var sql = "DROP TABLE IF EXISTS " + quote(tableName);
 
 		return sql;
+	}
+
+	public static function addColumnSQL(name:String, t:RecordType, isNull:Bool)
+	{
+		var dbName = getDBName();
+	}
+
+	public static function dropColumnSQL(name:String, t:RecordType, isNull:Bool)
+	{
+		var dbName = getDBName();
 	}
 }
 
