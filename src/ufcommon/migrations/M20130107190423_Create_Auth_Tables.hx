@@ -3,6 +3,7 @@ package ufcommon.migrations;
 import ufcommon.db.*;
 import ufcommon.model.auth.*;
 
+@noTable
 class M20130107190423_Create_Auth_Tables extends Migration
 {
 	override public function change()

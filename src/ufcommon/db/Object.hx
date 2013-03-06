@@ -7,6 +7,7 @@ package ufcommon.db;
 #end
 
 #if (neko || php || cpp)
+	@noTable
 	class Object extends sys.db.Object
 	{
 		public var id:SUId;

@@ -7,6 +7,8 @@ import ufcommon.db.Object;
 #else 
 	import ufcommon.db.Types;
 #end
+
+@noTable
 class Relationship extends Object
 {
 	public var r1:SUInt;
