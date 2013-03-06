@@ -7,7 +7,7 @@ import ufcommon.db.Object;
 	import ufcommon.db.Types;
 #end
 import sys.db.Connection;
-import sys.db.SpodInfos;
+import sys.db.RecordInfos;
 
 @:table("_migrations")
 class Migration extends Object
@@ -147,7 +147,7 @@ class MigrationHelpers
 		return untyped manager.quoteField(v);
 	}
 
-	public static inline function getTypeSQL( t : SpodType, dbName : String ) 
+	public static inline function getTypeSQL( t : RecordType, dbName : String ) 
 	{
 		return sys.db.TableCreate.getTypeSQL(t, dbName);
 	}

@@ -119,7 +119,7 @@ class UFTaskController extends Controller
         }
 
         // Get Task inputs
-        var currentTask = ts.tasks.filter(function (t) { return t.name == taskName; }).first();
+        var currentTask = ts.tasks.filter(function (t) { return t.name == taskName; })[0];
         var taskInputs = [];
         if (currentTask != null)
         {

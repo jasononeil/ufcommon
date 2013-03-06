@@ -15,7 +15,7 @@ class WebAppController extends Controller
 
     public function appManifest() 
     {
-    	var content = neko.io.File.getContent("out/app.html");
+    	var content = sys.io.File.getContent("out/app.html");
         return new ContentResult(content, "text/html");
     }
 
@@ -30,7 +30,7 @@ class WebAppController extends Controller
     	content.add("CACHE MANIFEST\n");
 
     	// Cache file must change if you want cache to refresh, so we have a comment with the version number
-    	content.add(Std.format("# ${AppConfig.appName} v${AppConfig.appVersion} build at ${AppConfig.appBuildDate}\n"));
+    	content.add('# ${AppConfig.appName} v${AppConfig.appVersion} build at ${AppConfig.appBuildDate}\n');
 
         content.add("index.html \n");
         content.add("js/client.js \n");

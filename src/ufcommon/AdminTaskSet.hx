@@ -1,11 +1,13 @@
 package ufcommon;
 
 import ufcommon.model.admin.AdminTaskLog;
+import haxe.ds.StringMap;
 using Reflect;
 using Lambda;
 using Detox;
 
-class AdminTaskSet implements haxe.rtti.Infos
+@:rtti
+class AdminTaskSet
 {
 	public var taskSetName:String;
 	public var taskSetTitle:String;
@@ -44,7 +46,7 @@ class AdminTaskSet implements haxe.rtti.Infos
 
 				// Look for any previous runs, and try to get the last date the task was run
 				var previousRuns = allTasksRun.filter(function (taskLog) { return taskLog.task == fieldName && taskLog.ts == taskSetName; });
-				var taskLastRun = (previousRuns.length > 0) ? previousRuns.first().modified : null;
+				var taskLastRun = (previousRuns.length > 0) ? previousRuns[0].modified : null;
 				
 				// Create the task for this field, add it to the list
 				var task = {
@@ -75,7 +77,7 @@ class AdminTaskSet implements haxe.rtti.Infos
 		}
 
 		// Header info for the output
-		var tsInputsHash = new Hash<String>();
+		var tsInputsHash = new StringMap<String>();
 		for (i in taskSetInputs)
 		{
 			var value = Reflect.getProperty(this, i);

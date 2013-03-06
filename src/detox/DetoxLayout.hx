@@ -1,5 +1,6 @@
 package detox;
 
+import haxe.ds.StringMap;
 using Detox;
 using StringTools;
 
@@ -16,8 +17,8 @@ class DetoxLayout extends dtx.DOMCollection
 	var titleDOM:DOMNode;
 	var navigationDOM:DOMNode;
 	
-	public var scripts:Hash<DOMCollection>;
-	public var stylesheets:Hash<DOMCollection>;
+	public var scripts:StringMap<DOMCollection>;
+	public var stylesheets:StringMap<DOMCollection>;
 
 	public function new(?template:String, ?layout:DOMNode, dtd:String = "<!DOCTYPE html>", contentSelector = "#main-content", navSelector = "#main-nav")
 	{
@@ -44,13 +45,13 @@ class DetoxLayout extends dtx.DOMCollection
 		contentDOM = this.find(contentSelector).getNode();
 		navigationDOM = this.find(navSelector).getNode();
 
-		scripts = new Hash();
+		scripts = new StringMap();
 		for (script in this.find("script"))
 		{
 			scripts.set(script.attr("src"), script.toCollection());
 		}
 
-		stylesheets = new Hash();
+		stylesheets = new StringMap();
 		for (stylesheet in this.find("link[rel=stylesheet]"))
 		{
 			stylesheets.set(stylesheet.attr("href"), stylesheet.toCollection());

@@ -49,7 +49,8 @@ package ufcommon.db;
 	}
 #else 
 	@:keepSub
-	class Object implements haxe.rtti.Infos
+	@:rtti
+	class Object
 	{
 		public var id:SId;
 		public var created:SDateTime;

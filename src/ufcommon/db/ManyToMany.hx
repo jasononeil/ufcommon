@@ -8,6 +8,7 @@ package ufcommon.db;
 #end
 import ufcommon.db.Object;
 import ufcommon.db.Relationship; 
+import haxe.ds.StringMap;
 using Lambda;
 
 // Note:
@@ -33,7 +34,7 @@ class ManyToMany<A:Object, B:Object>
 	
 	#if server 
 		var tableName:String;
-		static var managers:Hash<Manager<Object>> = new Hash();
+		static var managers:StringMap<Manager<Object>> = new StringMap();
 		var bManager:Manager<B>;
 		var manager:Manager<Relationship>;
 	#end
