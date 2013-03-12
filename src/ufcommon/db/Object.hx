@@ -6,8 +6,9 @@ package ufcommon.db;
 	import ufcommon.db.Types;
 #end
 
-#if (neko || php || cpp)
+#if server
 	@noTable
+	@:autoBuild(ufcommon.db.DBMacros.setupRelations())
 	class Object extends sys.db.Object
 	{
 		public var id:SUId;
@@ -51,6 +52,7 @@ package ufcommon.db;
 #else 
 	@:keepSub
 	@:rtti
+	@:autoBuild(ufcommon.db.DBMacros.setupRelations())
 	class Object
 	{
 		public var id:SId;
@@ -68,3 +70,6 @@ package ufcommon.db;
 		
 	}
 #end
+
+typedef BelongsTo<T> = T;
+typedef HasMany<T> = Iterable<T>;
