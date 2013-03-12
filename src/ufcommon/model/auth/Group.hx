@@ -17,29 +17,8 @@ class Group extends Object
 {
 	public var name:SString<255>;
 
-	@:skip @:manyToMany		public var users(get,null):ManyToMany<Group, User>;
-	@:skip @:hasMany		public var permissions(get,null):List<Permission>;
-
-	@:skip var _users:ManyToMany<Group, User>;
-	function get_users()
-	{
-		if (_users == null) _users = new ManyToMany(this, User);
-		return _users;
-	}
-
-	@:skip var _permissions:List<Permission>;
-	function get_permissions()
-	{
-		
-		#if server 
-			var g = this;
-			if (_permissions == null) _permissions = Permission.manager.search($groupID == g.id);
-		#else 
-			if (_permissions == null) _permissions = new List();
-		#end
-
-		return _permissions;
-	}
+	public var users:ManyToMany<Group, User>;
+	public var permissions:HasMany<Permission>;
 
 	#if server 
 		public static var manager:Manager<Group> = new Manager(Group);

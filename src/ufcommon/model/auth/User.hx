@@ -19,7 +19,7 @@ class User extends Object
 	public var password:SString<64>;
 	public var forcePasswordChange:Bool;
 
-	@:skip @:manyToMany		public var groups(get,null):ManyToMany<User, Group>;
+	public var groups:ManyToMany<User, Group>;
 
 	public function new(u:String, p:String)
 	{
@@ -39,13 +39,6 @@ class User extends Object
 			this.salt = Random.string(32);
 			this.password = generatePasswordHash(password, salt);
 		#end
-	}
-
-	@:skip var _groups:ManyToMany<User, Group>;
-	function get_groups()
-	{
-		if (_groups == null) _groups = new ManyToMany(this, Group);
-		return _groups;
 	}
 
 	/** Check permissions.  if (myUser.can(DriveCar) && myUser.can(BorrowParentsCar)) { ... } */

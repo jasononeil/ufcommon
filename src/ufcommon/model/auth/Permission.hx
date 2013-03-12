@@ -13,26 +13,7 @@ import ufcommon.model.auth.Group;
 class Permission extends Object
 {
 	public var permission:SString<255>;
-	@:skip @:belongsTo(groupID)	public var group(get,set):Group;
-
-	// The setters / getters for group.  Macro in future
-	public var groupID:SInt;
-	@:skip var _group:Group = null;
-	function get_group()
-	{
-		#if server 
-			if (_group == null && groupID != null) 
-				_group = Group.manager.get(groupID);
-		#end
-		return _group;
-	}
-	function set_group(v:Group)
-	{
-		_group = v;
-		if (v == null) throw "Group cannot be null";
-		groupID = v.id;
-		return _group;
-	}
+	public var group:BelongsTo<Group>;
 
 	public static function getPermissionID(e:EnumValue):String
 	{
