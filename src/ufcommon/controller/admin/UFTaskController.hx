@@ -71,7 +71,7 @@ class UFTaskController extends Controller
         
         for (task in ts.tasks)
         {
-            var result = runTask(tsName, task.name);
+            var result = runTask(tsName, task.name, this.controllerContext.request.post);
             view.results.addItem({
                 task: task.title,
                 description: (task.description == "") ? "..." : task.description,
@@ -85,7 +85,7 @@ class UFTaskController extends Controller
 
     function runSingleTask(tsName:String, taskName:String)
     {
-        var result = runTask(tsName, taskName);
+        var result = runTask(tsName, taskName, this.controllerContext.request.post);
 
         var view = new TaskResultView();
 
@@ -101,17 +101,16 @@ class UFTaskController extends Controller
         return new DetoxResult(view, UFAdminController.getLayout());
     }
 
-    function runTask(tsName:String, taskName:String)
+    public function runTask(tsName:String, taskName:String, inputs:Map<String,String>)
     {
         var ts = getTaskSet(tsName);
-        var post = this.controllerContext.request.post;
         
         // Get TaskSet inputs
         for (inputName in ts.taskSetInputs)
         {
-            if (post.exists("ts_" + inputName))
+            if (inputs.exists("ts_" + inputName))
             {
-                var varValue = post.get("ts_" + inputName);
+                var varValue = inputs.get("ts_" + inputName);
                 if (varValue == "") throw 'The TaskSet input $inputName was empty';
                 Reflect.setProperty(ts, inputName, varValue);
             }
@@ -126,9 +125,9 @@ class UFTaskController extends Controller
             for (inputName in currentTask.inputs)
             {
                 var postName = 'task_${taskName}_${inputName}';
-                if (post.exists(postName))
+                if (inputs.exists(postName))
                 {
-                    var varValue = post.get(postName);
+                    var varValue = inputs.get(postName);
                     if (varValue == "") 
                         throw 'The Task input $inputName was empty';
                     else 
