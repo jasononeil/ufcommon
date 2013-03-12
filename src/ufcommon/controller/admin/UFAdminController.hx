@@ -76,9 +76,13 @@ class UFAdminController extends Controller
     public static function checkAuth()
     {
         var permissionID = Permission.getPermissionID(UFAdminPermissions.CanAccessAdminArea);
-        if (Permission.manager.count($permission == permissionID) > 0)
+        var permissions = Permission.manager.search($permission == permissionID);
+
+        // If a group has this permission, and at least one member belongs to such a group.
+        if (permissions.length > 0 && permissions.exists(function (p) { return p.group.users.length > 0; }))
         {
             UserAuth.requirePermission(UFAdminPermissions.CanAccessAdminArea);
         }
+        // Else: assume stuff isn't set up yet and let them in without checking.
     }
 }
