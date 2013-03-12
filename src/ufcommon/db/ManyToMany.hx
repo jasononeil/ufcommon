@@ -29,6 +29,7 @@ class ManyToMany<A:Object, B:Object>
 	var b:Class<B>;
 	var aObject:A;
 	var bList:List<B>;
+	var bListIDs:List<Int>;
 
 	public var length(get,null):Int;
 	
@@ -109,17 +110,16 @@ class ManyToMany<A:Object, B:Object>
 				var relationships = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
 				if (relationships.length > 0)
 				{
-					var bListIDs = relationships.map(function (r:Relationship) { return Reflect.field(r, bColumn); });
+					bListIDs = relationships.map(function (r:Relationship) { return Reflect.field(r, bColumn); });
 					
 					// Search B table for our list of IDs.  
 					// bList = bManager.search($id in bListIDs);
 					bList = bManager.unsafeObjects("SELECT * FROM `" + bManager.table_name + "` WHERE " + Manager.quoteList("id", bListIDs), false);
 				}
 			}
-			if (bList == null)
-			{
-				bList = new List();
-			}
+			if (bList == null) bList = new List();
+			if (bListIDs == null) bListIDs = new List();
+
 		}
 	#end
 
