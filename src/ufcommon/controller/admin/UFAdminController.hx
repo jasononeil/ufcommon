@@ -21,7 +21,7 @@ class UFAdminController extends Controller
 {
     public static var models:List<Class<Dynamic>> = new List();
 
-    static var prefix = "/admin";
+    static var prefix = "/ufadmin";
 
     static public function addRoutes(routes:RouteCollection, ?p:String = "/admin")
     {
