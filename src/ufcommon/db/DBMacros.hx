@@ -129,7 +129,7 @@ class DBMacros
 
 		var setterBody = macro {
 			$privateIdent = v;
-			if (v == null) throw "${modelType.name} cannot be null";
+			if (v == null) throw '${modelType.name} cannot be null';
 			$idIdent = v.id;
 			return $privateIdent;
 		}
