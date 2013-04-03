@@ -100,4 +100,4 @@ T must be a type that extends ufcommon.db.Object */
 typedef HasMany<T> = Iterable<T>;
 
 /** Shortcut to ManyToMany relation */
-typedef ManyToMany<A,B> = ufcommon.db.ManyToMany<A,B>;
+// typedef ManyToMany<A,B> = ufcommon.db.ManyToMany<A,B>;
