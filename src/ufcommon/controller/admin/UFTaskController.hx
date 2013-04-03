@@ -20,8 +20,7 @@ class UFTaskController extends Controller
     {
         UFAdminController.checkAuth();
         var view = new TaskView();
-        var taskSets:List<Class<AdminTaskSet>> = cast CompileTime.getAllClasses(AdminTaskSet);
-        view.taskSets.addList(taskSets.map(function (ts) { return Type.createInstance(ts, []); }));
+        view.taskSets.addList(AdminTaskSet.allTaskSets);
         return new DetoxResult(view, UFAdminController.getLayout());
     }
 

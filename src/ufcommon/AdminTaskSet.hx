@@ -9,6 +9,8 @@ using Detox;
 @:rtti
 class AdminTaskSet
 {
+	public static var allTaskSets(get,null):List<AdminTaskSet>;
+
 	public var taskSetName:String;
 	public var taskSetTitle:String;
 	public var taskSetDescription:String;
@@ -122,19 +124,30 @@ class AdminTaskSet
 		return rttiXml;
 	}
 
-	function getTaskSetInputs()
+	public function getTaskSetInputs()
 	{
 		var inputs = getRtti().find('m[n=input]').parents().parents();
 		var inputNames = inputs.map(function (elm) { return elm.tagName(); });
 		return inputNames;
 	}
 
-	function getTaskInputs(task:String)
+	public function getTaskInputs(task:String)
 	{
 		var taskField = getRtti().find('$task m[n=task]').parents().parents();
 		var argumentsText = taskField.find("f").attr("a");
 		var arguments = (argumentsText == "") ? [] : argumentsText.split(":");
 		return arguments;
+	}
+
+	static var _sets:List<AdminTaskSet> = null;
+	static function get_allTaskSets()
+	{
+		if (_sets == null) 
+		{
+			CompileTime.importPackage("server.tasks");
+			_sets = cast CompileTime.getAllClasses(AdminTaskSet).map(function (ts) { return Type.createInstance(ts, []); });
+		}
+		return _sets;
 	}
 }
 
