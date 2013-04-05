@@ -31,6 +31,8 @@ class DBMacros
 								retFields = processBelongsToRelations(fields, f, modelType);
 							case { name: "HasMany", pack: _, params: [TPType(TPath(modelType))] }:
 								retFields = processHasManyRelations(fields, f, modelType);
+							case { name: "HasOne", pack: _, params: [TPType(TPath(modelType))] }:
+								retFields = processHasOneRelations(fields, f, modelType);
 							case { name: "ManyToMany", pack: _, params: [TPType(TPath(modelA)), TPType(TPath(modelB))] }:
 								retFields = processManyToManyRelations(fields, f, modelA, modelB);
 							case _: 
@@ -42,7 +44,7 @@ class DBMacros
 							case TPath(t):
 								switch (t.name)
 								{
-									case "HasMany" | "BelongsTo" | "HasOne":
+									case "HasMany" | "BelongsTo" | "HasOne" | "ManyToMany":
 										Context.error('On field `${f.name}`: ${t.name} can only be used with a normal var, not a property.', f.pos);
 									default: 
 								}
@@ -188,14 +190,6 @@ class DBMacros
 			access: [APrivate]
 		});
 
-		// Get the type of model we're dealing with
-		switch (fieldType)
-		{
-			case TPath(p):
-				if (p.params.length != 1) Context.warning('', f.pos);
-			default:
-		}
-
 		// Get the various exprs used in the getter
 
 		var ident = ("_" + f.name).resolve();
@@ -228,6 +222,91 @@ class DBMacros
 			getterBody = macro {
 				var s = this;
 				if ($ident == null) $ident = $model.manager.search($i{relationKey} == s.id);
+				return $ident;
+			};
+		}
+		else getterBody = macro return $ident;
+		fields.push({
+			pos: f.pos,
+			name: "get_" + f.name,
+			meta: [],
+			kind: FieldType.FFun({
+				ret: fieldType,
+				params: [],
+				expr: getterBody,
+				args: []
+			}),
+			doc: null,
+			access: [APrivate]
+		});
+
+		return fields;
+	}
+
+	static function processHasOneRelations(fields:Array<Field>, f:Field, modelType:TypePath)
+	{
+		// Add skip metadata to the field
+		f.meta.push({ name: ":skip", params: [], pos: f.pos });
+
+
+		// change var to property (get,null)
+		// Switch kind
+		//  - if var, change to property (get,null), get the fieldType
+		//  - if property or function, throw error.  (if they want to do something custom, don't use the macro)
+		// Return the property
+		var fieldType:Null<ComplexType> = null;
+		switch (f.kind) {
+			case FVar(t,e):
+				fieldType = t;
+				f.kind = FProp("get","null",t,e);
+			case _: Context.error('On field `${f.name}`: HasOne can only be used with a normal var, not a property or a function.', f.pos);
+		};
+		
+		// create var _propertyName (and skip)
+		// Add the private container field
+		// generally _fieldName:T
+		var modelTypeSig:ComplexType = TPath(modelType);
+		fields.push({
+			pos: f.pos,
+			name: "_" + f.name,
+			meta: [{ name: ":skip", params: [], pos: f.pos }], // Add @:skip metadata to this
+			kind: FVar(modelTypeSig),
+			doc: null, 
+			access: [APrivate]
+		});
+
+		// Get the various exprs used in the getter
+
+		var ident = ("_" + f.name).resolve();
+		var relationKey = null;
+		var relationKeyMeta = getMetaFromField(f, ":relationKey");
+		if (relationKeyMeta != null)
+		{
+			var rIdent = relationKeyMeta[0];
+			switch (rIdent.expr)
+			{
+				case EConst(CIdent(r)):
+					relationKey = "$" + r;
+				case _:
+			}
+		}
+		else
+		{
+			// From "SomeClass" model get "$someClassID" name
+			var name = Context.getLocalClass().get().name;
+			relationKey = "$" + name.charAt(0).toLowerCase() + name.substr(1) + "ID";
+		}
+
+		// create getter
+
+		var getterBody:Expr;
+		if (Context.defined("neko") || Context.defined("php") || Context.defined("cpp"))
+		{
+			var modelPath = (modelType.pack.length == 0) ? modelType.name : (modelType.pack.join(".") + "." + modelType.name);
+			var model = modelPath.resolve();
+			getterBody = macro {
+				var s = this;
+				if ($ident == null) $ident = $model.manager.select($i{relationKey} == s.id);
 				return $ident;
 			};
 		}
