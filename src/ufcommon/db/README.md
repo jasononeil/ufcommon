@@ -188,7 +188,7 @@ If no related objects belong to this one, then an empty list will be returned.
 
 ### ManyToMany
 
-ManyToMany<A,B> is used for situations where many things go together.  Each Student has many Classes, and each Class has many Students.  Each Tag has many Posts, and each Post has many Tags.  Defining a ManyToMany is simple:
+ManyToMany< A, B > is used for situations where many things go together.  Each Student has many Classes, and each Class has many Students.  Each Tag has many Posts, and each Post has many Tags.  Defining a ManyToMany is simple:
 	
 	// In your Student model
 	public var classes:ManyToMany< Student, SchoolClass >;
