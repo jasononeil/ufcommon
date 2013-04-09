@@ -1,7 +1,7 @@
 package clientds;
 
 import app.Api;
-import clientds.ClientDsApi;
+import ufcommon.remoting.*;
 using tink.core.types.Outcome;
 
 #if client
@@ -10,7 +10,7 @@ using tink.core.types.Outcome;
 	import haxe.ds.IntMap;
 	using Lambda;
 
-	class ClientDs<T:ufcommon.db.Object>
+	class ClientDs<T:ufcommon.db.Object> implements RequireApiProxy<ClientDsApi>
 	{
 		public static var api:clientds.ClientDsApiProxy;
 
