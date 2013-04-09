@@ -102,7 +102,7 @@ Haxe has one existing feature for setting up relationships, the `@:relation(id)`
 
 ##### Nullable
 
-I need to look into what the behaviour of Null<BelongsTo<User>> is, and if it is functioning correctly or not.
+If you want it to be optional, so it can be null, use `Null<BelongsTo<User>>`.
 
 ### HasOne
 
@@ -144,7 +144,7 @@ If that's not what your foreign key is called, say you used "child"/"childID" in
 
 ##### Nullable
 
-Again, I need to look into how Null< HasOne< User > > behaves.
+If you want it to be optional, so it can be null, use `Null<HasOne<User>>`.
 
 ### HasMany
 
