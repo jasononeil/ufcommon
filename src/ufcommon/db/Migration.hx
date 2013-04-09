@@ -1,11 +1,7 @@
 package ufcommon.db;
 
 import ufcommon.db.Object;
-#if server 
-	import sys.db.Types;
-#else 
-	import ufcommon.db.Types;
-#end
+import sys.db.Types;
 import sys.db.Connection;
 import sys.db.RecordInfos;
 
@@ -128,8 +124,6 @@ class Migration extends Object
 	}
 
 	// ALTER TABLE `Student` ADD `rollGroupID` INT( 10 ) UNSIGNED NOT NULL 
-
-	public static var manager = new sys.db.Manager<Migration>(Migration);
 }
 
 typedef MigrationResults = {

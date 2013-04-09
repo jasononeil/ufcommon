@@ -2,11 +2,7 @@ package ufcommon.model.admin;
 
 import haxe.Json;
 import ufcommon.db.Object;
-#if server 
-	import sys.db.Types;
-#else 
-	import ufcommon.db.Types;
-#end
+import sys.db.Types;
 
 @:table("_admintasklog")
 class AdminTaskLog extends Object
@@ -24,6 +20,4 @@ class AdminTaskLog extends Object
 		this.task = task;
 		this.output = output;
 	}
-
-	public static var manager = new sys.db.Manager<AdminTaskLog>(AdminTaskLog);
 }

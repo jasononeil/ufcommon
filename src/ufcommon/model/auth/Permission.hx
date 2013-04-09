@@ -2,12 +2,7 @@ package ufcommon.model.auth;
 
 import ufcommon.db.Object;
 import ufcommon.model.auth.Group; 
-#if server 
-	import sys.db.Manager;
-	import sys.db.Types;
-#else 
-	import ufcommon.db.Types;
-#end
+import sys.db.Types;
 
 @:table("auth_group_permission")
 class Permission extends Object
@@ -51,7 +46,5 @@ class Permission extends Object
 		{
 
 		}
-
-		public static var manager:Manager<Permission> = new Manager(Permission);
 	#end
 }

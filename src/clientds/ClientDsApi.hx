@@ -1,16 +1,13 @@
 package clientds;
 
-#if server
-	import sys.db.Types;
-	import sys.db.*;
-	import ufcommon.auth.UserAuth;
-#else 
-	import ufcommon.db.Types;
-	import ufcommon.db.*;
-#end
+import sys.db.Types;
 using tink.core.types.Outcome;
 import ufcommon.remoting.RemotingApiClass;
 import AppPermissions;
+#if server 
+	import sys.db.Manager;
+	import ufcommon.auth.UserAuth;
+#end 
 
 class ClientDsApi implements RemotingApiClass
 {

@@ -2,12 +2,7 @@ package ufcommon.model.auth;
 
 import ufcommon.db.Object;
 import ufcommon.db.ManyToMany; 
-#if server 
-	import sys.db.Manager;
-	import sys.db.Types;
-#else 
-	import ufcommon.db.Types;
-#end
+import sys.db.Types;
 
 import ufcommon.model.auth.Permission;
 import ufcommon.model.auth.User;
@@ -19,8 +14,4 @@ class Group extends Object
 
 	public var users:ManyToMany<Group, User>;
 	public var permissions:HasMany<Permission>;
-
-	#if server 
-		public static var manager:Manager<Group> = new Manager(Group);
-	#end
 }

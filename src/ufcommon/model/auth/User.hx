@@ -2,12 +2,7 @@ package ufcommon.model.auth;
 
 import ufcommon.db.Object;
 import ufcommon.db.ManyToMany;
-#if server 
-	import sys.db.Manager;
-	import sys.db.Types;
-#else 
-	import ufcommon.db.Types;
-#end
+import sys.db.Types;
 using Lambda;
 
 @:table("auth_user")
@@ -77,7 +72,5 @@ class User extends Object
 		{
 			return PBKDF2.encode(password, salt, 500, 32);
 		}
-
-		public static var manager:Manager<User> = new Manager(User);
 	#end
 }

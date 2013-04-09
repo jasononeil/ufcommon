@@ -1,10 +1,6 @@
 package ufcommon.db;
 
-#if server 
-	import sys.db.Types;
-#else 
-	import ufcommon.db.Types;
-#end
+import sys.db.Types;
 
 /** Extended Database Object
 
@@ -12,19 +8,28 @@ Builds on sys.db.Object, but adds: a default unique ID (unsigned Int), as well a
 
 Also has methods to keep the timestamps up to date, and a generic "save" method when you're not sure if you need to insert or update.
 
-This class also uses conditional compilation so that the objects can exist on non-server targets that have no access to sys.db.*, on
-these platforms the objects can be created and exist, but have no access to save(), insert(), update() or delete().  We tell if it's a server platform by seeing checking for the #server define, so on your neko/php/cpp targets use `-D server`.
+This class also uses conditional compilation so that the objects can exist on non-server targets that have no 
+access to sys.db.*, on these platforms the objects can be created and shared with remoting, and will be able to
+save and fetch records through ClientDS.
 
-Finally, a build macro is also used on all sub-classes which detects HasMany<T>, BelongsTo<T> and ManyToMany<A,B> types and sets them up as properties so they are handled correctly.
+We tell if it's a server platform by seeing checking for the #server define, so on your neko/php/cpp targets use `-D server`.
+
+Two build macros will be applied to all objects that extends this class:
+
+ * The first, is used to detects HasMany<T>, BelongsTo<T> and ManyToMany<A,B> types and 
+sets them up as properties so they are handled correctly.
+ * The second adds a "manager:sys.db.Manager" property on the server, or a "clientDS:clientds.ClientDs" property on the
+ client, and initialises them.
+
 */
 #if server
 	@noTable
-	@:autoBuild(ufcommon.db.DBMacros.setupRelations())
 #else
 	@:keepSub
 	@:rtti
-	@:autoBuild(ufcommon.db.DBMacros.setupRelations())
 #end 
+@:autoBuild(ufcommon.db.DBMacros.setupRelations())
+@:autoBuild(ufcommon.db.DBMacros.addManager())
 class Object #if server extends sys.db.Object #end
 {
 	public var id:SUId;
@@ -77,10 +82,18 @@ class Object #if server extends sys.db.Object #end
 
 		// Empty versions of these functions for the client.
 		public function new() {}
-		public function save()   { throw "Cannot save ufcommon.db.Object from the client."; } // Remoting call (or saves to local storage and wait for a sync()?) 
-		public function delete() { throw "Cannot delete ufcommon.db.Object from the client."; } // Remoting call (or saves to local storage and wait for a sync()?) 
-		public function insert() { throw "Cannot insert ufcommon.db.Object from the client."; } // Remoting call (or saves to local storage and wait for a sync()?)
-		public function update() { throw "Cannot update ufcommon.db.Object from the client."; } // Remoting call (or saves to local storage and wait for a sync()?)
+		public function save()   { 
+			throw "Cannot save ufcommon.db.Object from the client."; 
+		}
+		public function delete() { 
+			throw "Cannot delete ufcommon.db.Object from the client."; 
+		}
+		public function insert() { 
+			throw "Cannot insert ufcommon.db.Object from the client."; 
+		}
+		public function update() { 
+			throw "Cannot update ufcommon.db.Object from the client."; 
+		}
 	
 	#end
 }
