@@ -44,7 +44,7 @@ will get a "Class not found : my.app.MainApiClient" error.  So instead, do:
 	new my.app.MainApiClient(url, errorHandler);
 */
 
-@:autoBuild(ufcommon.remoting.ApiBuilder.buildApiContext())
+@:autoBuild(ufcommon.remoting.ApiMacros.buildApiContext())
 interface RemotingApiContext
 {
 

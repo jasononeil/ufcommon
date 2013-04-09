@@ -5,7 +5,7 @@ import haxe.macro.Expr;
 using StringTools;
 using Lambda;
 
-class ApiBuilder
+class ApiMacros
 {
 	macro public static function buildApiContext():Array<Field>
 	{
@@ -35,7 +35,9 @@ class ApiBuilder
 					addLineToFnBody(apiConstructorBlock, instExpr);
 
 					// Define a proxy for the given type
-					var proxyTPath = defineProxyForType(p);
+					var typeName = p.pack.concat([p.name]).join(".");
+					var type = Context.getType(typeName);
+					var proxyTPath = defineProxyForType(type);
 
 					// Create a copy of the field for the client class (change type to proxy)
 					clientClass.fields.push(convertFieldToProxy(f, proxyTPath));
@@ -97,6 +99,22 @@ class ApiBuilder
 			// Not on the client, so leave everything as is...
 			return null;
 		}
+	}
+
+	macro public static function buildSpecificApiProxy():Array<Field>
+	{
+		for (iface in Context.getLocalClass().get().interfaces)
+		{
+			if (iface.t.toString() == "ufcommon.remoting.RequireApiProxy")
+			{
+				// If this class implements RequireApiProxy<T>, find <T>
+				for (api in iface.params)
+				{
+					defineProxyForType(api);
+				}
+			}
+		}
+		return null;
 	}
 
 	#if macro 
@@ -178,32 +196,47 @@ class ApiBuilder
 		};
 	}
 
-	static function defineProxyForType(typePath:TypePath):Null<TypePath>
+	static function defineProxyForType(type:haxe.macro.Type):Null<TypePath>
 	{
-		var typeName = typePath.pack.concat([typePath.name]).join(".");
-		var type = Context.getType(typeName);
 		switch (type)
 		{
 			case TInst(t, _):
 				var cls = t.get();
-				var complex = Context.toComplexType(type);
-				var superClass = TDClass({ // haxe.remoting.AsyncProxy<app.login.LoginAPI>
-					sub: null, 
-					params: [TPType(complex)], 
-					pack: ["haxe","remoting"], 
-					name: "AsyncProxy" 
-				});
-				var proxyDefinition = {
-					pos: classPos,
-					params: [],
-					pack: cls.pack,
-					name: cls.name + "Proxy",
-					meta: [],
-					kind: superClass,
-					isExtern: false,
-					fields: []
-				};
-				Context.defineType(proxyDefinition);
+
+				// See if it already exists
+				var alreadyExists = false;
+				try 
+				{
+					var existing = Context.getType(t.toString() + "Proxy");
+					alreadyExists = true;
+				} 
+				catch (e:Dynamic)
+				{
+					alreadyExists = false;
+				}
+
+				if (!alreadyExists)
+				{
+					// If not, define the new type
+					var complex = Context.toComplexType(type);
+					var superClass = TDClass({ // haxe.remoting.AsyncProxy<app.login.LoginAPI>
+						sub: null, 
+						params: [TPType(complex)], 
+						pack: ["haxe","remoting"], 
+						name: "AsyncProxy" 
+					});
+					var proxyDefinition = {
+						pos: classPos,
+						params: [],
+						pack: cls.pack,
+						name: cls.name + "Proxy",
+						meta: [],
+						kind: superClass,
+						isExtern: false,
+						fields: []
+					};
+					Context.defineType(proxyDefinition);
+				}
 
 				// Return the TypePath
 				return { sub: null, params: [], pack: cls.pack, name: cls.name + "Proxy" };

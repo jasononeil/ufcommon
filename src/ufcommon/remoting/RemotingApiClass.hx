@@ -9,7 +9,7 @@ so all that is left is the method signiature.
 This way, the Proxy class will still be created successfully, but none of the server-side APIs
 get tangled up in client side code.
 */
-@:autoBuild(ufcommon.remoting.ApiBuilder.buildApiClass())
+@:autoBuild(ufcommon.remoting.ApiMacros.buildApiClass())
 interface RemotingApiClass
 {
 
