@@ -1,6 +1,9 @@
 package ufcommon.db;
 
 import sys.db.Types;
+import haxe.ds.StringMap;
+
+using StringTools;
 
 /** Extended Database Object
 
@@ -21,6 +24,15 @@ sets them up as properties so they are handled correctly.
  * The second adds a "manager:sys.db.Manager" property on the server, or a "clientDS:clientds.ClientDs" property on the
  client, and initialises them.
 
+Validation
+
+override validate()
+
+Security
+
+override checkAuthRead()
+override checkAuthWrite()
+
 */
 #if server
 	@noTable
@@ -28,8 +40,7 @@ sets them up as properties so they are handled correctly.
 	@:keepSub
 	@:rtti
 #end 
-@:autoBuild(ufcommon.db.DBMacros.setupRelations())
-@:autoBuild(ufcommon.db.DBMacros.addManager())
+@:autoBuild(ufcommon.db.DBMacros.setupDBObject())
 class Object #if server extends sys.db.Object #end
 {
 	public var id:SUId;
@@ -37,20 +48,47 @@ class Object #if server extends sys.db.Object #end
 	public var modified:SDateTime;
 
 	#if server
+		public function new()
+		{
+			super();
+			validationErrors = new StringMap();
+		}
 
 		/** Updates the "created" and "modified" timestamps, and then saves to the database. */
 		override public function insert()
 		{
-			this.created = Date.now();
-			this.modified = Date.now();
-			super.insert();
+			if (this.checkAuthWrite())
+			{
+				if (this.validate())
+				{
+					this.created = Date.now();
+					this.modified = Date.now();
+					super.insert();
+				}
+				else {
+					var errors = Lambda.array(validationErrors).join(", ");
+					throw 'Data validation failed for $this: ' + errors;
+				}
+			}
+			else throw 'You do not have permission to save object $this';
 		}
 
 		/** Updates the "modified" timestamp, and then saves to the database. */
 		override public function update()
 		{
-			this.modified = Date.now();
-			super.update();
+			if (this.checkAuthWrite())
+			{
+				if (this.validate())
+				{
+					this.modified = Date.now();
+					super.update();
+				}
+				else {
+					var errors = Lambda.array(validationErrors).join(", ");
+					throw 'Data validation failed for $this: ' + errors;
+				}
+			}
+			else throw 'You do not have permission to save object $this';
 		}
 		
 		/** Either updates or inserts the given record into the database, updating timestamps as necessary. 
@@ -81,21 +119,48 @@ class Object #if server extends sys.db.Object #end
 	#else
 
 		// Empty versions of these functions for the client.
-		public function new() {}
-		public function save()   { 
-			throw "Cannot save ufcommon.db.Object from the client."; 
+		public function new() 
+		{
+			validationErrors = null;
 		}
+
 		public function delete() { 
-			throw "Cannot delete ufcommon.db.Object from the client."; 
+			clientDs.delete(this);
 		}
-		public function insert() { 
-			throw "Cannot insert ufcommon.db.Object from the client."; 
+		public function save() { 
+			clientDs.save(this);
 		}
-		public function update() { 
-			throw "Cannot update ufcommon.db.Object from the client."; 
-		}
+		public inline function insert() { save(); }
+		public inline function update() { save(); }
 	
 	#end
+
+	/** If a call to validate() fails, it will populate this map with a list of errors.  The key should
+	be the name of the field that failed validation, and the value should be a description of the error. */
+	@:skip public var validationErrors:StringMap<String>;
+
+	/** A function to validate the current model.
+	
+	By default, this checks that no values are null unless they are Null<T> / SNull<T>, or if it the unique ID
+	that will be automatically generated.  If any are null when they shouldn't be, the model fails to validate.
+
+	It also looks for "validate_{fieldName}" functions, and if they match, it executes the function.  If the function
+	throws an error or returns false, then validation will fail.
+
+	If you override this method to add more custom validation, then we recommend starting with `super.validate()` and
+	ending with `return (!validationErrors.keys.hasNext());`
+	*/
+	public function validate():Bool 
+	{
+		validationErrors = new StringMap();
+		return (!validationErrors.keys().hasNext());
+	}
+
+	/** A function to check if the current user is allowed to read this object.  This always returns true, you should override it to be more useful */
+	public function checkAuthRead():Bool { return true; }
+	
+	/** A function to check if the current user is allowed to save this object.  This always returns true, you should override it to be more useful */
+	public function checkAuthWrite():Bool { return true; }
 }
 
 /** BelongsTo relation 
