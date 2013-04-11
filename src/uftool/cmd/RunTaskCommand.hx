@@ -88,10 +88,9 @@ class RunTaskCommand extends Command
 		
 		// Execute the task
 		var startTime = Sys.time();
-		var result = taskSet.run(taskName, taskInputs);
-		var timeTaken = Std.int((Sys.time() - startTime) / 1000);
+		var result = taskSet.run(taskName, taskInputs, true);
+		var timeTaken = Std.int(Sys.time() - startTime);
 
-		trace (result.output);
 		trace ('Time taken: $timeTaken seconds');
 	}
 
