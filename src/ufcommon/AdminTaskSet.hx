@@ -65,17 +65,23 @@ class AdminTaskSet
 		}
 	}
 
-	public function run(name:String, arguments:Array<String>):AdminTaskLog
+	public function run(name:String, arguments:Array<String>, ?liveOutput=false):AdminTaskLog
 	{
 		// Set up a custom trace
 		var originalTraceFn = haxe.Log.trace;
 		var output = new StringBuf();
+
+		var print = function (string) {
+			output.add(string + "\n");
+			if (liveOutput)	Sys.println(string);
+		}
+		
 		haxe.Log.trace = function (t:Dynamic, ?p:haxe.PosInfos) { 
 			var f = p.fileName;
 			var l = p.lineNumber;
 			var msg = Std.string(t);
 			if (p.customParams != null) msg = msg + ' ' + p.customParams.join(' ');
-			output.add('$f[$l]: $msg\n');
+			print('$f[$l]: $msg');
 		}
 
 		// Header info for the output
@@ -85,15 +91,15 @@ class AdminTaskSet
 			var value = Reflect.getProperty(this, i);
 			tsInputsHash.set(i, value);
 		}
-		output.add('Running task $name in $taskSetName\n');
-		output.add('  with task arguments $arguments\n');
-		output.add('  and task set arguments $tsInputsHash\n\n');
+		print('Running task $name in $taskSetName');
+		print('  with task arguments $arguments');
+		print('  and task set arguments $tsInputsHash\n');
 
 		// Run the actual command
 		var result = Reflect.callMethod(this, Reflect.field(this, name), arguments);
 		if (result != null)
 		{
-			output.add('\nRESULT: $result');
+			print('\nRESULT: $result');
 		}
 
 		// Save an AdminTaskLog
