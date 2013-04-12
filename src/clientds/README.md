@@ -49,8 +49,17 @@ Then you'll pass the API onto ClientDS like this:
 
     clientds.ClientDs.api = remoting.clientDsAPI;
 
-Then, to make this super easy, you attach a ClientDs object to each of your models, in much the same 
-way you're used to doing it for the Manager on the server.  Here's an example:
+Then, to make this super easy, we attach a ClientDs object to each of your models, in much the same 
+way as we attach a manager on the server.  Any model that extends ufcommon.db.Object will automatically
+get the clientDS and manager fields, so if you have the following:
+
+    class User extends ufcommon.db.Object
+    {
+        public var username:SString;
+        public var password:SString;
+    }
+
+It will become:
 
     class User extends ufcommon.db.Object
     {
@@ -70,4 +79,16 @@ This means, on your client, you can now do:
     user34Ready.then(function (user) {
         trace ('user 34 is ${user.username}');
         trace ('and their completely unencrypted password is ${user.password}, in case you were wondering.');
+    });
+
+And even cooler:
+
+    var user34Ready = User.clientDS.get(34);
+    user34Ready.then(function (user) {
+        user.username = "superfruitybubbleprincess2013";
+        var user34Saved = user.save();
+        user34Saved.when(function (user)
+        {
+            trace ('User 34 changed their username to ${user.username} at ${user.modified}');
+        });
     });

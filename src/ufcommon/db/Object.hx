@@ -118,17 +118,21 @@ class Object #if server extends sys.db.Object #end
 	
 	#else
 
-		// Empty versions of these functions for the client.
+		var _clientDS(default,never) : clientds.ClientDs<Dynamic>;
 		public function new() 
 		{
-			validationErrors = null;
+			validationErrors = new StringMap();
+			if( _clientDS == null ) untyped _manager = Type.getClass(this).clientDS;
 		}
 
 		public function delete() { 
-			clientDs.delete(this);
+			_clientDS.delete(this.id);
 		}
 		public function save() { 
-			clientDs.save(this);
+			_clientDS.save(this);
+		}
+		public function refresh() { 
+			_clientDS.refresh(this.id);
 		}
 		public inline function insert() { save(); }
 		public inline function update() { save(); }
