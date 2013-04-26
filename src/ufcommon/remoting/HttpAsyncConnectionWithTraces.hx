@@ -59,6 +59,7 @@ class HttpAsyncConnectionWithTraces extends HttpAsyncConnection
 		h.onData = function( response : String ) {
 			var ok = true;
 			var ret = null;
+			var stack:String = null;
 			try {
 				var hxrFound = false;
 				for (line in response.split('\n'))
@@ -72,20 +73,31 @@ class HttpAsyncConnectionWithTraces extends HttpAsyncConnection
 						case "hxt":
 							var s = new haxe.Unserializer(line.substr(3));
 							var t:RemotingTrace = s.unserialize();
-							haxe.Log.trace(t.v, t.p);
+							trace(t.v, t.p);
+						case "hxs":
+							var s = new haxe.Unserializer(line.substr(3));
+							stack = s.unserialize();
+						case "hxe":
+							// Unserializing an exception will throw it
+							var s = new haxe.Unserializer(line.substr(3));
+							ret = s.unserialize();
 						default:
 							throw "Invalid line in response : '"+line+"'";
 					}
 				}
 				if (hxrFound == false) throw "Invalid response, no hxr remoting line was found: " + response;
 			} catch( err : Dynamic ) {
-				ret = null;
+
+				// Pass the error to the error handler
 				ok = false;
-				error(err);
+				ret = null;
+
+				error({ err: err, stack: stack });
 			}
 			if( ok && onResult != null ) onResult(ret);
 		};
 		h.onError = error;
+		trace ('Send HTTP ${Date.now()}');
 		h.request(true);
 	}
 

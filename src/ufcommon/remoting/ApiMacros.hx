@@ -174,7 +174,9 @@ class ApiMacros
 	{
 		clientConstructorBlock = macro {
 			cnx = ufcommon.remoting.HttpAsyncConnectionWithTraces.urlConnect(url);
-			cnx.setErrorHandler(errorHandler); 
+			cnx.setErrorHandler(function (e:{ err:Dynamic, stack:String }) {
+				errorHandler(e.err, e.stack);
+			}); 
 		}
 		return {
 			pos: classPos,
@@ -187,7 +189,7 @@ class ApiMacros
 					expr: clientConstructorBlock,
 					args: [
 						{ value: null, type: macro :String, opt: false, name: "url" },
-						{ value: null, type: macro :Dynamic->Void, opt: false, name: "errorHandler" },
+						{ value: null, type: macro :Dynamic->String->Void, opt: false, name: "errorHandler" },
 					]
 				}
 			),

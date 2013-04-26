@@ -30,29 +30,8 @@ class RemotingController extends Controller
 
     public function run() 
     {
-        // Set up a custom trace that will work with the HttpAsyncConnectionWithTraces controller
-        var oldTrace = haxe.Log.trace;
-        haxe.Log.trace = function (val:Dynamic, ?posInfo:haxe.PosInfos) {
-            val = Std.string(val);
-            if (posInfo.customParams != null)
-            {
-                posInfo.customParams = posInfo.customParams.map(function (v) { return Std.string(v); }).array();
-            }
-            var t:RemotingTrace = {
-                v: val,
-                p: posInfo
-            }
-            var serialisedTrace = haxe.Serializer.run(t);
-            Lib.println("hxt" + serialisedTrace);
-        }
-
-        // Use cache on the data we serialise for remoting
-        haxe.Serializer.USE_CACHE = true;
-
         // Handle the remoting request
-        haxe.remoting.HttpConnection.handleRequest(context);
-
-        haxe.Log.trace = oldTrace;
+        ufcommon.remoting.HttpConnectionWithTraces.handleRequest(context);
     }
 
     function loadApi(api:RemotingApiContext)
