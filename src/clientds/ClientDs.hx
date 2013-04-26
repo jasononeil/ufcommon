@@ -2,16 +2,17 @@ package clientds;
 
 import app.Api;
 import ufcommon.remoting.*;
+import ufcommon.db.Object;
 using clientds.ClientDsResultSet;
 using tink.core.types.Outcome;
 
 #if client
 	import ufcommon.db.Types;
-	import promhx.Promise;
+	import clientds.Promise;
 	import haxe.ds.*;
 	using Lambda;
 
-	class ClientDs<T:ufcommon.db.Object> implements RequireApiProxy<ClientDsApi>
+	class ClientDs<T:Object> #if !macro implements RequireApiProxy<ClientDsApi> #end
 	{
 		//
 		// Factory
@@ -20,7 +21,7 @@ using tink.core.types.Outcome;
 		/** 
 		* Get (or create) a ClientDS for the given model.  
 		*
-		* If you're using ufcommon.db.Object, this will be attached to your models on the client in the same way
+		* If you're using Object, this will be attached to your models on the client in the same way
 		* that a manager is attached on the server, essentially:
 		*
 		*     static var clientDS:ClientDs<MyModel> = ClientDs.getClientDsFor(MyModel);
@@ -28,21 +29,23 @@ using tink.core.types.Outcome;
 		* @param The model to get a client for
 		* @return The ClientDS (DataStore) for that model
 		*/
-		public static function getClientDsFor<W:ufcommon.db.Object>(model:Class<W>):ClientDs<W>
+		public static function getClientDsFor<W:Object>(model:Class<W>):ClientDs<W>
 		{
+			if (stores == null) stores = new StringMap();
+			
 			var name = Type.getClassName(model);
-			if (clientDataStores.exists(name))
+			if (stores.exists(name))
 			{
-				return cast clientDataStores.get(name);
+				return cast stores.get(name);
 			}
 			else 
 			{
 				var ds = new ClientDs(model);
-				clientDataStores.set(name, cast ds);
+				stores.set(name, cast ds);
 				return ds;
 			}
 		}
-		static var clientDataStores:StringMap<ClientDs<ufcommon.db.Object>>;
+		static var stores:StringMap<ClientDs<Object>>;
 
 		//
 		// API
@@ -57,17 +60,16 @@ using tink.core.types.Outcome;
 		var modelName:String;
 		var ds:IntMap<Promise<Null<T>>>;
 		var allPromise:Promise<IntMap<T>>;
-		var searchPromises:ObjectMap<{}, Promise<IntMap<T>>>;
+		var searchPromises:StringMap<Promise<IntMap<T>>>;
 
 		/** Constructor is private.  Please use ClientDS.getClientDsFor(model) to create */
 		function new(model:Class<T>)
 		{
-
 			this.model = model;
 			this.modelName = Type.getClassName(model);
 			this.ds = new IntMap();
 			this.allPromise = null;
-			this.searchPromises = new ObjectMap();
+			this.searchPromises = new StringMap();
 		}
 
 		/** 
@@ -77,7 +79,6 @@ using tink.core.types.Outcome;
 		* @return This returns a promise.  When the object is received (or if it's already cached), the promise
 		*   will be fulfilled and your code will execute. If the object was not found, the promise will resolve as null.
 		* @throws (String) an error message, if ClientDs.api has not been set.
-		* @reject (String) an error message if the object could not be retrieved from the server
 		*/
 		public function get(id:SUId):Promise<Null<T>>
 		{
@@ -86,7 +87,6 @@ using tink.core.types.Outcome;
 			if (ds.exists(id)) 
 			{ 
 				// If it already exists, return that promise.
-				trace ('Found cache for $modelName[$id]'); 
 				return ds.get(id); 
 			}
 			else 
@@ -95,32 +95,16 @@ using tink.core.types.Outcome;
 				var p = new Promise<T>();
 				ds.set(id, p);
 				
-				if (allPromise != null)
-				{
-					// If an existing call to all() has been made, wait for that
-					trace ('Will wait for $modelName[$id] to be retrieved from all() promise');
-					allPromise.then(function (list) {
-						trace ('Retrieved $modelName[$id] via call to all()');
-						var obj = list.filter(function (o) return o.id == id).first();
-						p.resolve(obj);
-					});
-				}
-				else 
+				if (allPromise == null)
 				{
 					// Otherwise, create a new call just to retrieve this object
-					trace ('Begin retrieval of $modelName[$id]');
-					var map = [ modelName => [id] ];
-					api.get(map, function (result) {
-						switch (result)
-						{
-							case Success(resultSet):
-								trace ('Retrieved $modelName[$id] successfully');
-								processResultSet(resultSet);
-							case Failure(msg):
-								p.reject("ClientDs, retrieving object from API failed: " + msg);
-						}
-					});
+					var req = new ClientDsRequest().get(cast model, id);
+					processRequest(req);
 				}
+				// else 
+					// If an existing call to all() has been made, wait for that
+					// processRequest() will unpack the all and resolve our promise
+
 				return p;
 			}
 		}
@@ -140,7 +124,7 @@ using tink.core.types.Outcome;
 		* @throws (String) an error message, if ClientDs.api has not been set.
 		* @reject (String) an error message if objects could not be retrieved from the server
 		*/
-		public function getMany(ids:Iterable<SUId>):Promise<IntMap<T>>
+		public function getMany(ids:Array<SUId>):Promise<IntMap<T>>
 		{
 			if (api == null) throw "Please set static property 'api' before using ClientDs";
 			
@@ -190,19 +174,8 @@ using tink.core.types.Outcome;
 			else
 			{
 				// Otherwise, create a new call just to retrieve these specific objects
-				var map = [ modelName => newRequests ];
-				api.get(map, function (result) {
-					switch (result)
-					{
-						case Success(resultSet):
-							processResultSet(resultSet);
-							// After processing, all promises should be found.  If not, it means some of the IDs
-							// did not exist. Just resolve with the list that did exist...
-							if (Promise.allSet(allCurrentPromises) == false) { listProm.resolve(list); }
-						case Failure(msg):
-							listProm.reject("ClientDs, retrieving objects from API failed: " + msg);
-					}
-				});
+				var req = new ClientDsRequest().getMany(cast model, ids);
+				processRequest(req);
 			}
 
 			// Return the promise while we wait for everything to resolve.
@@ -222,7 +195,6 @@ using tink.core.types.Outcome;
 		* @return The promise returned is for an IntMap containing all of the objects in this model.  
 		*    The key is the ID, the value the actual object.
 		* @throws (String) an error message, if ClientDs.api has not been set.
-		* @reject (String) an error message, if there was an error retrieving objects from the API
 		*/
 		public function all():Promise<IntMap<T>>
 		{
@@ -233,26 +205,8 @@ using tink.core.types.Outcome;
 				allPromise = new Promise();
 
 				// Make the API call
-				api.all([modelName], function (result) {
-					switch (result)
-					{
-						case Success(rs):
-
-							// Process each and resolve individual promises
-							processResultSet(rs);
-
-							// Build the IntMap for the "allPromise"
-							var intMap = new IntMap();
-							for (item in rs.items(cast model))
-							{
-								intMap.set(item.id, item);
-							}
-							allPromise.resolve(cast intMap);
-
-						case Failure(msg):
-							allPromise.reject("ClientDs, retrieving objects from API failed: " + msg);
-					}
-				});
+				var req = new ClientDsRequest().all(cast model);
+				processRequest(req);
 			}
 
 			return allPromise;
@@ -280,73 +234,32 @@ using tink.core.types.Outcome;
 		public function search(criteria:{}):Promise<IntMap<T>>
 		{
 			var prom:Promise<IntMap<T>>;
+			var criteriaStr = haxe.Json.stringify(criteria);
 
-			if (searchPromises.exists(criteria))
+			if (searchPromises.exists(criteriaStr))
 			{
 				// Do nothing, we'll just use the existing promise
-
-				prom = searchPromises.get(criteria);
+				prom = searchPromises.get(criteriaStr);
 			}
 			else if (allPromise != null)
 			{
 				// Wait for the entire list to load, and then do a filter
-
 				prom = new Promise();
 				allPromise.then(function (intMap) {
-					var matches = new IntMap();
-					for (obj in intMap)
-					{
-						var match = true;
-						for (field in Reflect.fields(criteria))
-						{
-							var criteriaValue = Reflect.field(criteria, field);
-							var objValue = Reflect.getProperty(obj, field);
-							if (criteriaValue != objValue)
-							{
-								match = false;
-								break;
-							}
-						}
-						if (match)
-						{
-							matches.set(obj.id, obj);
-						}
-					}
-					prom.resolve(matches);
+					prom.resolve(cast ClientDsUtil.filterByCriteria(intMap, criteria));
 				});
 			}
 			else
 			{
 				// No existing cache, so do a call to the API, which will do a dynamicSearch()
-
 				if (api == null) throw "Please set static property 'api' before using ClientDs";
 				
 				prom = new Promise();
-				searchPromises.set(criteria, prom);
+				searchPromises.set(criteriaStr, prom);
 
 				// Make the API call
-				var map:StringMap<{}> = new StringMap();
-				map.set(modelName, criteria);
-				api.search(map, function (result) {
-					switch (result)
-					{
-						case Success(rs):
-
-							// Process each and resolve individual promises
-							processResultSet(rs);
-
-							// Build the IntMap for the "allPromise"
-							var intMap = new IntMap();
-							for (item in rs.items(cast model))
-							{
-								intMap.set(item.id, item);
-							}
-							prom.resolve(cast intMap);
-
-						case Failure(msg):
-							prom.reject("ClientDs, retrieving objects from API failed: " + msg);
-					}
-				});
+				var req = new ClientDsRequest().search(cast model, criteria);
+				processRequest(req);
 			}
 			return prom;
 		}
@@ -358,14 +271,16 @@ using tink.core.types.Outcome;
 		* on the server.
 		*
 		* @param The object to save
-		* @return A promise containing the same object.  The 'id' field will be updated if the object was freshly inserted.
-		* @reject (String) Any error message.  Could be to do with database access, permission failures, validation failures etc.
+		* @return A promise that will be fulfilled when the API call is finished.  The promise is for a Result, if the save
+		*   was a success, it will contain the same object.  The 'id' field will be updated if the object was freshly inserted.
+		*   If the save was a failure, it will contain an error message.
 		*/
-		public function save(o:T):Promise<T>
+		public function save(o:T):Promise<Outcome<T,String>>
 		{
 			if (api == null) throw "Please set static property 'api' before using ClientDs";
 
 			var p = new Promise();
+
 			var map = [ modelName => [o] ];
 			api.save(cast map, function (result) {
 				var outcome = result.get(modelName)[0];
@@ -373,9 +288,9 @@ using tink.core.types.Outcome;
 				{
 					case Success(id):
 						o.id = id;
-						p.resolve(o);
+						p.resolve(o.asSuccess());
 					case Failure(msg):
-						p.reject('Failed to delete $o: $msg');
+						p.resolve('Failed to delete $o: $msg'.asFailure());
 				}
 			});
 			return p;
@@ -387,10 +302,9 @@ using tink.core.types.Outcome;
 		* This calls delete() on the server, so all permission checks will still occur on the server.
 		*
 		* @param The ID of the object to delete
-		* @return A promise containing the same ID.  
-		* @reject (String) Any error message.  Could be to do with database access, permission failures etc.
+		* @return A promise containing the same ID if it was a Success, or an error message if it was a Failure.
 		*/
-		public function delete(id:SUId):Promise<SUId>
+		public function delete(id:SUId):Promise<Outcome<SUId,String>>
 		{
 			if (api == null) throw "Please set static property 'api' before using ClientDs";
 
@@ -401,9 +315,9 @@ using tink.core.types.Outcome;
 				switch (outcome)
 				{
 					case Success(id):
-						p.resolve(id);
+						p.resolve(id.asSuccess());
 					case Failure(msg):
-						p.reject('Failed to delete $modelName[$id]: $msg');
+						p.resolve('Failed to delete $modelName[$id]: $msg'.asFailure());
 				}
 			});
 			return p;
@@ -427,7 +341,8 @@ using tink.core.types.Outcome;
 		public function refreshSearch(criteria:{}):Promise<IntMap<T>>
 		{
 			allPromise = null;
-			searchPromises.remove(criteria);
+			var criteriaStr = haxe.Json.stringify(criteria);
+			searchPromises.remove(criteriaStr);
 			return search(criteria);
 		}
 
@@ -435,188 +350,80 @@ using tink.core.types.Outcome;
 		// Static methods
 		//
 
-		/** 
-		* Get all() from several different models and add the results to the data store.
+		/**
+		* Process a CleintDsRequest object and return the results. Will call ClientDsApi.get()
 		*
-		* This will make a fresh API call, and will replace any existing cached data.
+		* Your request will force a reload of any objects it finds.  If you want to check for a cached version, use
+		* the model's ClientDs.
 		*
-		* @param An array of the models/classes you wish to retrieve objects from
-		* @return A promise for when all the models have been fetched.
+		* @param req - the ClientDsRequest you wish to get results for.
 		* @throws (String) an error message, if ClientDs.api has not been set.
-		* @reject (String) an error message if objects could not be retrieved from the server
+		* @return A promise for the result set.  Is actually an Outcome, with Success containing the ClientDsResultSet,
+		*   and Failure containing the error message (String).
 		*/
-		public static function getAllObjects(models:Array<Class<ufcommon.db.Object>>):Promise<ClientDsResultSet>
+		public static function processRequest(req:ClientDsRequest):Promise<Outcome<StringMap<IntMap<Object>>, String>> 
 		{
 			if (api == null) throw "Please set static property 'api' before using ClientDs";
 
-			var p = new Promise();
+			var resultSetPromise = new Promise();
 
-			// Make the API call
-			var modelNames = models.map(function (m) return Type.getClassName(m));
-			api.all(modelNames, function (result) {
-				switch (result)
-				{
-					case Success(rs):
-
-						// Process each and resolve individual promises
-						var map = processResultSet(rs);
-						
-						// Resolve the allPromise for each clientDS
-						for (modelName in map.keys())
-						{
-							var model = Type.resolveClass(modelName);
-							var modelDS = getClientDsFor(model);
-
-							// If the promise has already been resolved, do a new one
-							if (Promise.allSet([modelDS.allPromise])) modelDS.allPromise = new Promise();
-							modelDS.allPromise.resolve(map.get(modelName));
-						}
-						
-						// Resolve the overall promise
-						p.resolve(rs);
-
-					case Failure(msg):
-						p.reject("ClientDs, retrieving objects from API failed: " + msg);
-				}
-			});
-
-			// Set up promises for each model, if they aren't there already
-			for (model in models)
+			// Create promises for each bit of the request
+			for (modelName in req.requests.keys())
 			{
-				var modelDS = getClientDsFor(model);
-				if (modelDS.allPromise == null) modelDS.allPromise = new Promise();
-			}
+				var r = req.requests.get(modelName);
+				var clientDs = getClientDsFor(Type.resolveClass(modelName));
 
-			return p;
-		}
-
-		/** 
-		* Perform a search on several different models and add the results to the data store.
-		*
-		* This will make a fresh API call, and will replace any existing cached data.  New data will
-		* be added to the cache.
-		*
-		* @param A StringMap, with key=modelName, value={criteria}.  Value is an anonymous object used to match items, same as manager.dynamnicSearch()
-		* @return A promise for when all the models have been fetched.
-		* @throws (String) an error message, if ClientDs.api has not been set.
-		* @reject (String) an error message if objects could not be retrieved from the server
-		*/
-		public static function searchForObjects(inMap:StringMap<{}>):Promise<ClientDsResultSet>
-		{
-			if (api == null) throw "Please set static property 'api' before using ClientDs";
-
-
-			// Set up promises
-			var p = new Promise();	// Overall promise
-			for (modelName in inMap.keys())	// For each search
-			{
-				var model = Type.resolveClass(modelName);
-				var modelDS = getClientDsFor(model);
-				var criteria = inMap.get(modelName);
-
-				if (modelDS.searchPromises.exists(criteria) == false)
+				// If an all was requested, create/recreate the promise for it
+				if (r.all)
 				{
-					modelDS.searchPromises.set(criteria, new Promise());
+					if (clientDs.allPromise == null || Promise.allSet([clientDs.allPromise]))
+						clientDs.allPromise	= new Promise();
 				}
-			}
 
-			// Make the API call
-			api.search(inMap, function (result) {
-				switch (result)
+				// Create / recreate promises for any search requests
+				for (s in r.search)
 				{
-					case Success(rs):
-
-						// Process each and resolve individual item promises
-						var rsMap = processResultSet(rs);
-						
-						// Resolve each search promise on it's ClientDS
-						for (modelName in rsMap.keys())
-						{
-							var model = Type.resolveClass(modelName);
-							var modelDS = getClientDsFor(model);
-
-							var criteria = inMap.get(modelName);
-							var searchProm = modelDS.searchPromises.get(criteria);
-							if (Promise.allSet([searchProm]))
-							{
-								// If the promise has already been resolved, do a new one
-								searchProm = new Promise();
-								modelDS.searchPromises.set(criteria, searchProm);
-							}
-							searchProm.resolve(rsMap.get(modelName));
-						}
-
-						// Resolve the overall promise
-						p.resolve(rs);
-
-					case Failure(msg):
-						p.reject("ClientDs, retrieving objects from API failed: " + msg);
+					var criteriaStr = haxe.Json.stringify(s.c);
+					var p = clientDs.searchPromises.get(criteriaStr);
+					if (p == null || Promise.allSet([p]))
+						clientDs.searchPromises.set(criteriaStr, new Promise());
 				}
-			});
-
-			return p;
-		}
-
-		/** 
-		* Get specific objects from several different models at once
-		* 
-		* As it's argument, it takes a StringMap, where each key represents the name of a model and
-		* each value is an iterable of IDs for that model.  
-		* 
-		* Eg:
-		*
-		*  getMany([
-		*  	"app.model.Farmer" => [33,34,35],
-		*  	"app.model.Crop" => [1,2,5]
-		*  ]);
-		* 
-		* A promise will be created for each requested object as well.
-		*
-		* This will make a fresh API call and overwrite and existing cached objects.
-		* 
-		* @param a map of the IDs to get, as explained above.
-		* @return a promise for when all of the objects are fetched, containing a Map: "ModelName" => (id => object)
-		* @throws (String) an error message, if ClientDs.api has not been set.
-		* @reject (String) an error message if objects could not be retrieved from the server
-		*/
-		public static function getObjects(map:StringMap<Array<SUId>>):Promise<ClientDsResultSet>
-		{
-			if (api == null) throw "Please set static property 'api' before using ClientDs";
-
-			var p = new Promise();
-
-			// Make the API call
-			api.get(map, function (result) {
-				switch (result)
-				{
-					case Success(rs):
-
-						// Process each and resolve individual promises
-						processResultSet(rs);
-						// Resolve the overall promise
-						p.resolve(rs);
-
-					case Failure(msg):
-						p.reject("ClientDs, retrieving objects from API failed: " + msg);
-				}
-			});
-
-			// Set up promises for each object
-			for (modelName in map.keys())
-			{
-				var model = Type.resolveClass(modelName);
-				var modelDS = getClientDsFor(model);
 				
-				for (id in map.get(modelName))
+				// Create / recreate promises for any get requests
+				for (g in r.get)
 				{
-					if (modelDS.ds.exists(id) == false)
+					var p = clientDs.ds.get(g.id);
+					if (p == null || Promise.allSet([p]))
+						clientDs.ds.set(g.id, new Promise());
+				}
+
+				// Create / recreate promises for any getMany requests
+				// We don't create a separate promise for the getMany request itself.
+				// If myClientDs.getMany() is called, it will check against the individual
+				// ids, rather than against them as a set. So we only need to track individuals.
+				for (g in r.getMany)
+				{
+					for (id in g.ids)
 					{
-						modelDS.ds.set(id, new Promise());
+						var p = clientDs.ds.get(id);
+						if (p == null || Promise.allSet([p]))
+							clientDs.ds.set(id, new Promise());
 					}
 				}
 			}
-
-			return p;
+			
+			// Process the request, resolve the response outcome
+			api.get(req, function (results) {
+				switch(results)
+				{
+					case Success(rs): 
+						var map = processResultSet(req, rs);
+						resultSetPromise.resolve(map.asSuccess());
+					case Failure(error): 
+						resultSetPromise.resolve(error.asFailure());
+				}
+			});
+			return resultSetPromise;
 		}
 
 		/** 
@@ -629,10 +436,10 @@ using tink.core.types.Outcome;
 		* @return A promise for the same map that was input, but the IDs were updated as they were saved.
 		* @throws (String) an error message, if ClientDs.api has not been set.
 		* @reject The promise is rejected if some objects failed to save.  The rejection throws an anonymous 
-		*   object: { failed: [failed objects], saved: [successfully saved objects] }.  Any failures will also
+		*   object: { failed: [ { o:failedObject, err:errorMessage }], saved: [successfully saved objects] }.  Any failures will also
 		*   trace an error message for now.  I should come up with a better system though.
 		*/
-		public static function saveObjects(objectsToSave:Map<String, Array<ufcommon.db.Object>>):Promise<Map<String, Array<ufcommon.db.Object>>>
+		public static function saveObjects(objectsToSave:Map<String, Array<Object>>):Promise<Map<String, Array<Object>>>
 		{
 			if (api == null) throw "Please set static property 'api' before using ClientDs";
 
@@ -657,7 +464,7 @@ using tink.core.types.Outcome;
 								saved.push(originalObject);
 							case Failure(msg):
 								trace("ClientDs, failed to save $originalObject: " + msg);
-								failed.push(originalObject);
+								failed.push({ o:originalObject, err:msg });
 						}
 						i++;
 					}
@@ -674,14 +481,14 @@ using tink.core.types.Outcome;
 		/** 
 		* Delete the specified objects from the server
 		* 
-		* @param a StringMap, key=modelName, value=[array of objects]
+		* @param a StringMap, key=modelName, value=[array of objects to delete]
 		* @return A promise for the same map that was input
 		* @throws (String) an error message, if ClientDs.api has not been set.
 		* @reject The promise is rejected if some objects failed to dekete.  The rejection throws an anonymous 
 		*   object: { failed: [failed objects], deleted: [successfully deleted objects] }.  Any failures will also
 		*   trace an error message for now.  I should come up with a better system though.
 		*/
-		public static function deleteObjects(objectsToDelete:Map<String, Array<ufcommon.db.Object>>):Promise<Map<String, Array<ufcommon.db.Object>>>
+		public static function deleteObjects(objectsToDelete:Map<String, Array<Object>>):Promise<Map<String, Array<Object>>>
 		{
 			if (api == null) throw "Please set static property 'api' before using ClientDs";
 
@@ -727,55 +534,233 @@ using tink.core.types.Outcome;
 			return p;
 		}
 
+		public static macro function when(args:Array<ExprOf<Promise<Dynamic>>>):Expr
+		{
+			// just using a simple pos for all expressions
+			var pos = args[0].pos;
+			// Dynamic Complex Type expression
+			var d = TPType("Dynamic".asComplexType());
+			// Generic Dynamic Complex Type expression
+			var p = "promhx.Promise".asComplexType([d]);
+			var ip = "Iterable".asComplexType([TPType(p)]);
+			//The unknown type for the then function, also used for the promise return
+			var ctmono = Context.typeof(macro null).toComplex(true);
+			var eargs:Expr; // the array of promises
+			var ecall:Expr; // the function call on the promises
+
+
+			// multiple argument, with iterable first argument... treat as error for now
+			if (args.length > 1 && ExprTools.is(args[0],ip)){
+				Context.error("Only a single Iterable of Promises can be passed", args[1].pos);
+			} else if (ExprTools.is(args[0],ip)){ // Iterable first argument, single argument
+				var cptypes =[Context.typeof(args[0]).toComplex(true)];
+				eargs = args[0];
+				ecall = macro {
+					var arr = [];
+					for (a in $eargs) arr.push(a._val);
+					f(arr);
+				}
+			} else { // multiple argument of non-iterables
+				for (a in args){
+					if (ExprTools.is(a,p)){
+						//the types of all the arguments (should be all Promises)
+						var types = args.map(Context.typeof);
+						//the parameters of the Promise types
+						var ptypes = types.map(function(x) switch(x){
+							case TInst(_,params): return params[0];
+							default : {
+								Context.error("Somehow, an illegal promise value was passed",pos);
+								return null;
+							}
+						});
+						var cptypes = ptypes.map(function(x) return x.toComplex(true)).array();
+						//the macro arguments expressed as an array expression.
+						eargs = {expr:EArrayDecl(args),pos:pos};
+
+						// An array of promise values
+						var epargs = args.map(function(x) {
+							return {expr:EField(x,"_val"),pos:pos}
+						}).array();
+						ecall = {expr:ECall(macro f, epargs), pos:pos}
+					} else{
+						Context.error("Arguments must all be Promise types, or a single Iterable of Promise types",a.pos);
+					}
+				}
+			}
+
+			// the returned function that actually does the runtime work.
+			return macro {
+				var parr:Array<Promise<Dynamic>> = $eargs;
+				var p = new Promise<$ctmono>();
+				{
+					then : function(f){
+						 //"then" function callback for each promise
+						var cthen = function(v:Dynamic){
+							if ( Promise.allSet(parr)){
+								try{ 
+									if ( Promise.allSet([p]) == false )
+										untyped p.resolve($ecall); 
+								}
+								catch(e:Dynamic){
+									untyped p.handleError(e);
+								}
+							}
+						}
+						if (Promise.allSet(parr)) cthen(null);
+						else for (p in parr) p.then(cthen);
+						return p;
+					}
+				}
+			}
+		}
+
+		/**
+		* This is basically the same as Promise.when(), but without the macro magic
+		* (The macro magic was conflicting with one of the API building macros used here)
+		*
+		* The key differences:
+		*  - Pass your promises in as an array, not a string of constants...
+		*  - The arguments are figured out using untyped, and called using Reflect.callMethod()
+		*  - So compile time checking is minimal.  Yeah, we should really fix this.
+		*/
+		public static function whenRuntime(promises:Array<Promise<Dynamic>>)
+		{
+			var p = new Promise<Dynamic>();
+			return {
+				then : function(f){
+					if (Type.enumEq(Type.typeof(f), TFunction))
+					{
+						 //"then" function callback for each promise
+						var cthen = function(v:Dynamic){
+							if ( Promise.allSet(promises))
+							{
+								try
+								{ 
+									if ( Promise.allSet([p]) == false )
+									{
+										var args = promises.map(function (p) return untyped p._val);
+										var result = Reflect.callMethod({}, f, args);
+										untyped p.resolve(result); 
+									}
+								}
+								catch(e:Dynamic)
+								{
+									untyped p.handleError(e);
+								}
+							}
+						}
+						if (Promise.allSet(promises)) cthen(null);
+						else for (p in promises) p.then(cthen);
+					}
+					else throw "Invalid function parsed to when()";
+					return p;
+				}
+			}
+		}
+
 		//
 		// Private members
 		//
 
-		static function processResultSet(rs:ClientDsResultSet):StringMap<IntMap<ufcommon.db.Object>>
-		{
-			var map = new StringMap<IntMap<ufcommon.db.Object>>();
 
-			// For each model
-			for (modelName in rs.keys())
+		static function processResultSet(req:ClientDsRequest, rs:ClientDsResultSet):StringMap<IntMap<Object>>
+		{
+			var map = new StringMap<IntMap<Object>>();
+
+			var promisesToResolve:Array<Promise<Dynamic>> = [];
+
+			// Add all of the items in each model, resolve item promises
+			for (model in rs.models())
 			{
 				// Find the DS
-				var model = Type.resolveClass(modelName);
 				var modelDS = getClientDsFor(model);
+				var modelName = Type.getClassName(model);
 
 				// Set up the IntMap to return
-				var intMap = new IntMap<ufcommon.db.Object>();
-				map.set(modelName, intMap);
+				var items = rs.items(model);
+				map.set(modelName, items);
 
-				// For each item
-				var items = rs.get(modelName);
+				// Resolve the individual promises
 				for (item in items)
 				{
 					// Get the ID, add it to the return map
 					var id = item.id;
-					intMap.set(id, item);
 
 					// Find the promise, or create it
-					var p:Promise<Dynamic> = null;
-					var newPromise = true;
-					if (modelDS.ds.exists(id)) 
+					var p:Promise<Dynamic> = modelDS.ds.get(id);
+					if (p == null || Promise.allSet([p]))
 					{
-						p = modelDS.ds.get(id);
-
-						// If it exists, but hasn't been resolved, we'll use that promise
-						if (Promise.allSet([p]) == false) newPromise = false;
-					}
-					if (newPromise) 
-					{
-						p = new Promise();
-						modelDS.ds.set(id, p);
+						modelDS.ds.set(id, p = new Promise());
 					}
 
-					// Resolve it
-					p.resolve(item);
+					// Set the promise value
+					PromiseAbuse.setWithoutFiring(p, item);
+					promisesToResolve.push(p);
+				}
+
+				// Resolve the all promise
+				if (rs.hasAllRequest(modelName))
+				{
+					// Create / Recreate the promise if needed
+					if (modelDS.allPromise == null || Promise.allSet([modelDS.allPromise]))
+						modelDS.allPromise	= new Promise();
+					
+					// Set the promise value
+					PromiseAbuse.setWithoutFiring(modelDS.allPromise, rs.items(model));
+					promisesToResolve.push(modelDS.allPromise);
+				}
+
+				// Resolve the search promises
+				for (criteria in rs.searches(model))
+				{
+					// Get, create or recreate the search promise
+					var criteriaStr = haxe.Json.stringify(criteria);
+					var p = modelDS.searchPromises.get(criteriaStr);
+					if (p == null || Promise.allSet([p]))
+						modelDS.searchPromises.set(criteriaStr, new Promise());
+					
+					// Set the promise value
+					var results = rs.searchResults(model,criteria);
+					if (results != null) 
+					{
+						PromiseAbuse.setWithoutFiring(p, results);
+						promisesToResolve.push(p);
+					}
+				}
+			}
+
+			// See notes in PromiseAbuse.hx for why we've split setting/firing
+			// But here, we've set all of our promises, now fire the handlers
+			for (p in promisesToResolve)
+			{
+				try 
+				{
+					PromiseAbuse.fireWithoutSetting(p);	
+				}
+				catch (e:String)
+				{
+					if (e == "Promise has already been resolved")
+					{
+						trace ("That promise resolved twice...");
+						// When does this happen?
+						// var combinedProm = Promise.when(p1,p2);
+							// p1.then( /* If p1 and p2 set, resolve combindedProm */ )
+							// p2.then( /* If p1 and p2 set, resolve combindedProm */ )
+						// PromiseAbuse.setWithoutFiring(p1, val1);
+						// PromiseAbuse.setWithoutFiring(p2, val2);
+						// PromiseAbuse.fireWithoutSetting(p1);
+							// p1.then() ... p1 and p2 set ... resolve combinedProm
+						// PromiseAbuse.fireWithoutSetting(p2);
+							// p2.then() ... p1 and p2 set ... resolve combinedProm
+							// Uh oh! Resolved twice...
+							// I knew this was a bad idea.  try {} catch {} for now.
+					}
+					else throw e;
 				}
 			}
 
 			return map;
 		}
+
 	}
 #end 

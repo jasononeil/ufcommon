@@ -2,13 +2,11 @@ package ufcommon.db;
 
 #if server 
 	import sys.db.Manager;
-	import sys.db.Types;
-#else 
-	import ufcommon.db.Types;
 #end
+import sys.db.Types;
 import ufcommon.db.Object;
 import ufcommon.db.Relationship; 
-import haxe.ds.StringMap;
+import haxe.ds.*;
 using Lambda;
 
 // Note:
@@ -35,38 +33,43 @@ class ManyToMany<A:Object, B:Object>
 	
 	#if server 
 		var tableName:String;
-		static var managers:StringMap<Manager<Object>> = new StringMap();
+		static var managers:StringMap<Manager<Relationship>> = new StringMap();
 		var bManager:Manager<B>;
 		var manager:Manager<Relationship>;
 	#end
 
-	public function new(aObject:A, bClass:Class<B>)
+	public function new(aObject:A, bClass:Class<B>, ?initialise=true)
 	{
+		this.aObject = aObject;
 		#if server 
 			this.a = Type.getClass(aObject);
 			this.b = bClass;
-			this.aObject = aObject;
 			bManager = untyped b.manager;
 			this.tableName = generateTableName(a,b);
-
-			if (managers.exists(tableName))
-			{
-				// Managers are stored as Manager<Object>, we want to cast it to Manager<Relationship>
-				this.manager = cast managers.get(tableName);
-			}
-			else 
-			{
-				this.manager = new Manager(Relationship);
-				setTableName(tableName);
-				managers.set(tableName, cast manager);
-			}
-
-			refreshList();
+			this.manager = getManager(tableName);
+			if (initialise) refreshList();
 		#end 
 	}
 	
 	#if server 
-		function isABeforeB()
+		@:access(sys.db.Manager)
+		static function getManager(tableName:String):Manager<Relationship>
+		{
+			var m;
+			if (managers.exists(tableName))
+			{
+				m = managers.get(tableName);
+			}
+			else 
+			{
+				m = new Manager(Relationship);
+				m.table_name = tableName;
+				managers.set(tableName, m);
+			}
+			return m;
+		}
+
+		static function isABeforeB(a,b)
 		{
 			// Get the names (class name, last section after package list)
 			var aName = Type.getClassName(a).split('.').pop();
@@ -90,12 +93,6 @@ class ManyToMany<A:Object, B:Object>
 			arr.unshift("_join");
 			return arr.join('_');
 		}
-		
-		@:access(sys.db.Manager)
-		function setTableName(name:String)
-		{
-			manager.table_name = name;
-		}
 			
 		@:access(sys.db.Manager)
 		public function refreshList()
@@ -103,8 +100,8 @@ class ManyToMany<A:Object, B:Object>
 			if (aObject != null)
 			{
 				var id = aObject.id;
-				var aColumn = (isABeforeB()) ? "r1" : "r2";
-				var bColumn = (isABeforeB()) ? "r2" : "r1";
+				var aColumn = (isABeforeB(a,b)) ? "r1" : "r2";
+				var bColumn = (isABeforeB(a,b)) ? "r2" : "r1";
 				
 				// var relationships = manager.search($a == id);
 				var relationships = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(id), false);
@@ -119,7 +116,6 @@ class ManyToMany<A:Object, B:Object>
 			}
 			if (bList == null) bList = new List();
 			if (bListIDs == null) bListIDs = new List();
-
 		}
 	#end
 
@@ -140,8 +136,8 @@ class ManyToMany<A:Object, B:Object>
 			#if server 
 				if (bObject.id == null) bObject.insert();
 				
-				var r = if (isABeforeB()) new Relationship(aObject.id, bObject.id);
-				        else              new Relationship(bObject.id, aObject.id);
+				var r = if (isABeforeB(a,b)) new Relationship(aObject.id, bObject.id);
+				        else                 new Relationship(bObject.id, aObject.id);
 				
 				r.insert();
 			#end
@@ -155,8 +151,8 @@ class ManyToMany<A:Object, B:Object>
 			bList.remove(bObject);
 
 			#if server 
-				var aColumn = (isABeforeB()) ? "r1" : "r2";
-				var bColumn = (isABeforeB()) ? "r2" : "r1";
+				var aColumn = (isABeforeB(a,b)) ? "r1" : "r2";
+				var bColumn = (isABeforeB(a,b)) ? "r2" : "r1";
 				
 				// manager.delete($a == aObject.id && $b == bObject.id);
 				manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
@@ -170,7 +166,7 @@ class ManyToMany<A:Object, B:Object>
 		#if server 
 			if (aObject != null)
 			{
-				var aColumn = (isABeforeB()) ? "r1" : "r2";
+				var aColumn = (isABeforeB(a,b)) ? "r1" : "r2";
 				// manager.delete($a == aObject.id);
 				manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id));
 			}
@@ -203,8 +199,8 @@ class ManyToMany<A:Object, B:Object>
 		{
 
 			#if server
-				var aColumn = (isABeforeB()) ? "r1" : "r2";
-				var bColumn = (isABeforeB()) ? "r2" : "r1";
+				var aColumn = (isABeforeB(a,b)) ? "r1" : "r2";
+				var bColumn = (isABeforeB(a,b)) ? "r2" : "r1";
 				
 				// manager.delete($a == aObject.id && $b == bObject.id);
 				manager.unsafeDelete("DELETE FROM `" + tableName + "` WHERE " + aColumn + " = " + Manager.quoteAny(aObject.id) + " AND " + bColumn + " = " + Manager.quoteAny(bObject.id));
@@ -218,6 +214,51 @@ class ManyToMany<A:Object, B:Object>
 	{
 		add(bObject);
 	}
+
+	//
+	// Static helpers
+	//
+
+	#if server
+		/**
+		* A function to at once retrieve the related IDs of several objects.
+		* 
+		*/
+		public static function relatedIDsforObjects(aModel:Class<Object>, bModel:Class<Object>, ?aObjectIDs:Iterable<SUId>):IntMap<List<Int>>
+		{
+			// Set up
+			var aBeforeB = isABeforeB(aModel,bModel);
+			var tableName = generateTableName(aModel,bModel);
+			var manager = getManager(tableName);
+			var aColumn = (aBeforeB) ? "r1" : "r2";
+
+			// Fetch the relationships
+			var relationships;
+			if (aObjectIDs == null)
+				relationships = manager.all();
+			else 
+				relationships = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + Manager.quoteList(aColumn, aObjectIDs), false);
+
+			// Put them into an Intmap
+			var intMap = new IntMap<List<Int>>();
+			for (r in relationships)
+			{
+				var aID = (aBeforeB) ? r.r1 : r.r2;
+				var bID = (aBeforeB) ? r.r2 : r.r1;
+
+				var list = intMap.get(aID);
+				if (list == null) intMap.set(aID, list = new List());
+
+				list.push(bID);
+			}
+
+			return intMap;
+		}
+	#end
+
+	//
+	// Private
+	//
 
 	inline function get_length()
 	{

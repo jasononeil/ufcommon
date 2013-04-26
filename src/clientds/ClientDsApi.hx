@@ -2,9 +2,13 @@ package clientds;
 
 import sys.db.Types;
 using tink.core.types.Outcome;
+using Lambda;
 import ufcommon.remoting.RemotingApiClass;
-import haxe.ds.StringMap;
+import ufcommon.db.Object;
+import ufcommon.db.ManyToMany;
+import haxe.ds.*;
 import clientds.ClientDsResultSet;
+import clientds.ClientDsRequest;
 import AppPermissions;
 #if server 
 	import sys.db.Manager;
@@ -15,127 +19,12 @@ class ClientDsApi implements RemotingApiClass
 {
 	public function new() {}
 
-	/** 
-	* Retrive sepcific objects from the database
-	* 
-	* As it's argument, it takes a StringMap, where each key represents the name of a model and
-	* each value is an iterable of IDs for that model.  
-	* 
-	* Eg:
-	*
-	*  get([
-	*  	"app.model.Farmer" => [33,34,35],
-	*  	"app.model.Crop" => [1,2,5]
-	*  ]);
-	*
-	* @param map, A StringMap as described above.
-	* @return An outcome object, with a StringMap where key=modelName, value=List<Object> if it was 
-	*  successful, or a String containing the error message if it failed.  If the query worked but 
-	*  there were no results, it will return an empty list for that map key.  The return object may
-	*  have objects you didn't request, if related objects where retrieved via the foreign keys etc.
-	* 
-	* With this API call, you will have to type things on the other side.  This hash this returns is
-	* typed as a generic Object list for each model.  Using ClientDsResultSet can help with this.
-	*/
-	public function get(map:Map<String, Array<SUId>>):Outcome<ClientDsResultSet, String>
+	public function get(req:ClientDsRequest):Outcome<ClientDsResultSet, String>
 	{
-		if (map == null) return "No map of models/IDs was supplied to ClientDsApi.getMany".asFailure();
-
-		var returnMap = new ClientDsResultSet();
-
 		try 
 		{
-			for (modelName in map.keys())
-			{
-				var ids = map.get(modelName);
-				var manager = getManager(modelName);
-				
-				var tableName = Manager.quoteAny(untyped manager.table_name);
-				var list = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + Manager.quoteList("id", ids), false);
-
-				returnMap.set(modelName, list);
-			}
-
-			return returnMap.asSuccess();
-		}
-		catch (e:String)
-		{
-			return e.asFailure();
-		}
-	}
-
-	/** 
-	* Retrive all objects from a table (or many tables)
-	* 
-	* @param modelNames, An array containing all your model names.  eg ["app.models.User","app.models.Post"]
-	* @return An outcome object, with a StringMap where key=modelName, value=List<Object> if it was 
-	*  successful, or a String containing the error message if it failed.  If the query worked but 
-	*  there were no results, it will return an empty list for that map key.
-	* 
-	* With this API call, you will have to type things on the other side.  This hash this returns just
-	* contains a generic Object list for each model. Using ClientDsResultSet can help with this.
-	*/
-	public function all(modelNames:Array<String>):Outcome<ClientDsResultSet, String>
-	{
-		if (modelNames == null) return "No list of model names was supplied to ClientDsApi.getAllFromModels".asFailure();
-
-		var returnMap = new ClientDsResultSet();
-
-		try 
-		{
-			for (modelName in modelNames)
-			{
-				var manager = getManager(modelName);
-				var list = manager.all();
-				returnMap.set(modelName, list);
-			}
-
-			return returnMap.asSuccess();
-		}
-		catch (e:String)
-		{
-			return e.asFailure();
-		}
-	}
-
-	/** 
-	* Retrive objects that match given criteria
-	* 
-	* As it's argument, it takes a StringMap, where each key represents the name of a model and
-	* each value is a object of properties to match, similar to Manager.dynamicSearch();
-	* 
-	* Eg:
-	*
-	*  get([
-	*  	"app.model.Farmer" => { age: 46, state: "WA" },
-	*  	"app.model.Crop" => { type: "wheat" }
-	*  ]);
-	*
-	* @param map, A StringMap as described above.
-	* @return An outcome object, with a StringMap where key=modelName, value=List<Object> if it was 
-	*  successful, or a String containing the error message if it failed.  If the query worked but 
-	*  there were no results, it will return an empty list for that map key.
-	* 
-	* With this API call, you will have to type things on the other side.  This hash this returns just
-	* contains a generic Object list for each model. Using ClientDsResultSet can help with this.
-	*/
-	public function search(map:StringMap<{}>):Outcome<ClientDsResultSet, String>
-	{
-		if (map == null) return "No list of model names was supplied to ClientDsApi.getAllFromModels".asFailure();
-
-		var returnMap = new ClientDsResultSet();
-
-		try 
-		{
-			for (modelName in map.keys())
-			{
-				var criteria = map.get(modelName);
-				var manager = getManager(modelName);
-				var list = manager.dynamicSearch(criteria);
-				returnMap.set(modelName, list);
-			}
-
-			return returnMap.asSuccess();
+			var rs = doGet(req);
+			return rs.asSuccess();
 		}
 		catch (e:String)
 		{
@@ -157,33 +46,33 @@ class ClientDsApi implements RemotingApiClass
 	*/
 	public function save(map:Map<String, Array<ufcommon.db.Object>>):StringMap<Array<Outcome<SUId, String>>>
 	{
-		if (map == null) return new StringMap();
+			if (map == null) return new StringMap();
 
-		var retMap = new StringMap();
+			var retMap = new StringMap();
 
-		for (modelName in map.keys())
-		{
-			var objects = map.get(modelName);
-			if (objects != null)
+			for (modelName in map.keys())
 			{
-				var a:Array<Outcome<SUId, String>> = [];
-				for (o in map.get(modelName))
-				{
-					try 
+					var objects = map.get(modelName);
+					if (objects != null)
 					{
-						o.save();
-						a.push(o.id.asSuccess());
+							var a:Array<Outcome<SUId, String>> = [];
+							for (o in map.get(modelName))
+							{
+									try 
+									{
+											o.save();
+											a.push(o.id.asSuccess());
+									}
+									catch (e:String)
+									{
+											a.push(e.asFailure());
+									}
+							}
+							retMap.set(modelName, a);
 					}
-					catch (e:String)
-					{
-						a.push(e.asFailure());
-					}
-				}
-				retMap.set(modelName, a);
 			}
-		}
 
-		return retMap;
+			return retMap;
 	}
 
 	/** 
@@ -201,59 +90,259 @@ class ClientDsApi implements RemotingApiClass
 	@:access(sys.db.Manager)
 	public function delete(map:Map<String, Array<SUId>>):StringMap<Array<Outcome<SUId, String>>>
 	{
-		if (map == null) return new StringMap();
+			if (map == null) return new StringMap();
 
-		var retMap = new StringMap();
+			var retMap = new StringMap();
 
-		for (modelName in map.keys())
-		{
-			var objects = map.get(modelName);
-			var manager = getManager(modelName);
-			if (objects != null)
+			for (modelName in map.keys())
 			{
-				var a:Array<Outcome<SUId, String>> = [];
-				for (id in map.get(modelName))
+					var objects = map.get(modelName);
+					var model = getModel(modelName);
+					var manager = getManager(model);
+					if (objects != null)
+					{
+							var a:Array<Outcome<SUId, String>> = [];
+							for (id in map.get(modelName))
+							{
+									try 
+									{
+											var tableName = manager.table_name;
+											var quotedID = manager.quoteField('$id');
+											manager.unsafeDelete('DELETE FROM $tableName WHERE `id` = $quotedID');
+											a.push(id.asSuccess());
+									}
+									catch (e:String)
+									{
+											a.push(e.asFailure());
+									}
+							}
+							retMap.set(modelName, a);
+					}
+			}
+
+			return retMap;
+	}
+
+	function doGet(req:ClientDsRequest, ?resultSet:ClientDsResultSet, ?originalRequest=true):ClientDsResultSet
+	{
+		if (resultSet == null) resultSet = new ClientDsResultSet();
+
+		var relationsToGet = new ClientDsRequest();
+		var map = req.requests;
+
+		for (name in map.keys())
+		{
+			var model = getModel(name);
+			var manager = getManager(model);
+			var requests = map.get(name);
+
+			// Do "all" requests first, so any dependant searches are cached
+
+			var allList:List<Object> = null;
+			if (requests.all)
+			{
+				allList = manager.all();
+				var intMap = resultSet.addAll(name, allList);
+				if (requests.allRel) 
+					relationsToGet = findRelations(model,intMap,resultSet,relationsToGet);
+			}
+
+			// Do searches next, as these will likely have the most matches.  Again, cache as much as possible.
+
+			for (s in requests.search)
+			{
+				var criteria = s.c;
+				var getRel = s.r;
+				var intMap:IntMap<Object> = null;
+
+				if (requests.all)
 				{
-					try 
+					// If there was an all request, the results will already be in our resultSet.
+					// and ClientDS on the client will be smart enough to just filter.  So no need
+					// to run resultSet.addSearchResults(name, criteria, list)
+
+					// Only fetch relations for this search if we want them and the all request didn't get them
+					if (getRel && !requests.allRel)
 					{
-						var tableName = manager.table_name;
-						var quotedID = manager.quoteField('$id');
-						manager.unsafeDelete('DELETE FROM $tableName WHERE `id` = $quotedID');
-						a.push(id.asSuccess());
+						// Create the list so we can fetch relations
+						intMap = ClientDsUtil.filterByCriteria(allList, criteria);
 					}
-					catch (e:String)
-					{
-						a.push(e.asFailure());
-					}
+					else getRel = false;
 				}
-				retMap.set(modelName, a);
+				else 
+				{
+					// Else, make a new request
+					var list = manager.dynamicSearch(criteria);
+					intMap = resultSet.addSearchResults(name, criteria, list);
+				}
+				if (getRel) relationsToGet = findRelations(model,intMap,resultSet,relationsToGet);
+			}
+
+			// Build list of IDs from getMany and get, separated by which ones are fetching relations.
+			// Leave out any that are already cached
+			var getWithRel = [];
+			var getWithoutRel = [];
+
+			for (g in requests.get)
+			{
+				var arr = (g.r) ? getWithRel : getWithoutRel;
+				if (!resultSet.hasGetRequest(name, g.id)) arr.push(g.id);
+			} 
+			for (g in requests.getMany)
+			{
+				var arr = (g.r) ? getWithRel : getWithoutRel;
+				for (id in g.ids)
+				{
+					if (!resultSet.hasGetRequest(name, id)) arr.push(id);
+				}
+			} 
+			
+			// Create a request for the remainder (only if length of list > 0)
+			var tableName = Manager.quoteAny(untyped manager.table_name);
+			if (getWithRel.length > 0)
+			{
+				var list = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + Manager.quoteList("id", getWithRel), false);
+				var intMap = resultSet.addItems(name, list);
+				relationsToGet = findRelations(model,intMap,resultSet,relationsToGet);
+			}
+			if (getWithoutRel.length > 0)
+			{
+				var list = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + Manager.quoteList("id", getWithoutRel), false);
+				resultSet.addItems(name, list);
 			}
 		}
+		
+		// If there are relationships to fetch... get them now
+		if (relationsToGet.empty == false)
+		{
+			doGet(relationsToGet, resultSet, false);
+		}
 
-		return retMap;
+		return resultSet;
+	}
+
+	@:access(ufcommon.db.ManyToMany)
+	function findRelations(model:Class<Object>, l:IntMap<Object>, rs:ClientDsResultSet, req:ClientDsRequest)
+	{
+		var relationshipStrings:Array<String> = Reflect.field(model, "hxRelationships");
+		// relationshipStrings = [ propertyName, relationType, relatedModel, ?relationKey ]
+
+		if (relationshipStrings.length > 0)
+		{
+			var relationships:Array<{property:String,relType:String,model:Class<Object>,foreignKey:Null<String>}> = [];
+			for (s in relationshipStrings)
+			{
+				var parts = s.split(",");
+				var foreignModelName = parts[2];
+				var r = {
+					property: parts[0],
+					relType: parts[1],
+					model: cast Type.resolveClass(foreignModelName),
+					foreignKey: (parts.length > 3) ? parts[3] : null
+				};
+				relationships.push(r);
+
+				// We'll process all of the ManyToMany joins now, rather than in the loop below.  Should be more efficient.
+				if (r.relType == "ManyToMany")
+				{
+					// If this model doesn't have an "all" request, fetch individual IDs to find joins for.  
+					// Otherwise we'll get the whole join table
+					var joins:IntMap<List<Int>> = null;
+					if (rs.hasAllRequest(Type.getClassName(model)) == false)
+					{
+						var ids = l.map(function (obj) return obj.id);
+						joins = ManyToMany.relatedIDsforObjects(model,r.model,ids);
+					}
+					else 
+					{
+						joins = ManyToMany.relatedIDsforObjects(model,r.model);
+					}
+
+					for (aID in joins.keys())
+					{
+						// If aID is in our original list
+						if (l.exists(aID))
+						{
+							// Add the items to the result set
+							var list = joins.get(aID);
+							for (bID in list) addGetToRequestIfNotInResultSet(rs, req, r.model, bID);
+
+							// Let's take the time to initiate the private ManyToMany variable
+							var o = l.get(aID);
+							var m2m = new ManyToMany(o, r.model, false);
+							m2m.bListIDs = list;
+							Reflect.setField(o, "_"+r.property, m2m);
+						}
+					}
+				}
+			}
+
+			// This whole thing could probably be optimised a lot more.  I don't know how many calls to ManyToMany.isABeforeB() etc are being made
+			for (obj in l)
+			{
+				for (r in relationships)
+				{
+					switch (r.relType)
+					{
+						case "BelongsTo":
+							addGetToRequestIfNotInResultSet(rs, req, r.model, Reflect.field(obj, r.property));
+						case "HasMany" | "HasOne":
+							var criteria = {};
+							Reflect.setField(criteria, r.foreignKey, obj.id);
+							addSearchToRequestIfNotInResultSet(rs, req, r.model, criteria);
+						case "ManyToMany":
+							// We added these relationships above, outside of this loop
+						default:
+					}
+				}
+			}
+		}
+		return req;
+	}
+
+	function addGetToRequestIfNotInResultSet(rs:ClientDsResultSet, req:ClientDsRequest, model:Class<Object>, id, ?fetchRelations):ClientDsRequest
+	{
+		if (!rs.hasGetRequest(Type.getClassName(model), id))
+			req.get(model, id, fetchRelations);
+
+		return req;
+	}
+
+	function addSearchToRequestIfNotInResultSet(rs:ClientDsResultSet, req:ClientDsRequest, model:Class<Object>, criteria, ?fetchRelations):ClientDsRequest
+	{
+		if (!rs.hasSearchRequest(Type.getClassName(model), criteria))
+			req.search(model, criteria, fetchRelations);
+
+		return req;
 	}
 
 	#if server 
-		function getManager(modelName:String):Manager<ufcommon.db.Object>
+		function getModel(modelName:String):Class<Object>
 		{
-			var modelCl:Class<Dynamic> = Type.resolveClass(modelName);
+			var modelCl:Class<Object> = cast Type.resolveClass(modelName);
 
 			// If class wasn't found, return failure
 			if (modelCl == null)
 				throw 'The model $modelName was not found';
 
+			// Hopefully by this point everything is safe to cast
+			return modelCl;
+		}
+
+		function getManager(modelCl:Class<Object>):Manager<Object>
+		{
 			// If there is no "manager", return failure
 			if (Reflect.hasField(modelCl, "manager") == false)
-				throw 'The model $modelName had no field "manager"';
+				throw 'The model ${Type.getClassName(modelCl)} had no field "manager"';
 
 			// Try to create an instance of the manager
-			var manager:Manager<ufcommon.db.Object> = Reflect.field(modelCl, "manager");
+			var manager:Manager<Object> = Reflect.field(modelCl, "manager");
 
 			// Check it's a valid manager
-			if (!Std.is(manager, sys.db.Manager)) throw 'The manager for $modelName was not valid.';
+			if (!Std.is(manager, sys.db.Manager)) throw 'The manager for ${Type.getClassName(modelCl)} was not valid.';
 
 			// Hopefully by this point everything is safe to cast
-			return cast manager;
+			return manager;
 		}
 	#end
 }

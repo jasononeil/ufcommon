@@ -1,6 +1,7 @@
 package ufcommon.db;
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import haxe.macro.Type;
 import sys.db.RecordMacros;
 import ufcommon.util.BuildTools;
 using tink.macro.tools.MacroTools;
@@ -16,6 +17,7 @@ class DBMacros
 		fields = setupRelations(fields);
 		fields = addManager(fields);
 		fields = addValidation(fields);
+		fields = addHxSerializeFieldsArray(fields);
 
 		return fields;
 	}
@@ -24,8 +26,6 @@ class DBMacros
 
 		static public function setupRelations(fields:Array<Field>):Array<Field>
 		{
-			// trace ('Set up relations for class ${Context.getLocalClass().toString()}');
-			
 			var retFields:Array<Field> = null;
 
 			// Loop over every field.
@@ -101,14 +101,14 @@ class DBMacros
 			}
 
 			// Loop all fields, 
-			var ignoreList = ["new", "validate", "id", "created", "modified", "manager", "clientDS"];
+			var ignoreList = ["new", "validate", "id", "created", "modified"];
 			var validateFnNames = [];
 			for (f in fields.copy())
 			{
 				// Skip these ones
 				if (ignoreList.has(f.name)) continue;
-				if (getMetaFromField(f, ":skip") != null) continue;
 				if (f.access.has(AStatic) == true) continue;
+				if (getMetaFromField(f, ":skip") != null) continue;
 
 				// add validation functions by metadata
 				var validateFieldName = "validate_" + f.name;
@@ -180,10 +180,125 @@ class DBMacros
 			return fields;
 		}
 
+		static function addHxSerializeFieldsArray(fields:Array<Field>):Array<Field>
+		{
+			var serializeFields = [];
+			var relationFields = [];
+
+			// Loop all fields, look for fields to include in serialization
+			for (f in fields.copy())
+			{
+				// Skip these ones
+				if (f.access.has(AStatic) == true) continue;
+
+				switch (f.kind)
+				{
+					case FVar(_,_): // Any database fields are vars. 
+						// Check they're not skipped
+						if (f.meta.exists(function (mEntry) return mEntry.name == ":skip") == false)
+						{
+							serializeFields.push(f.name);
+						}
+					case FProp(_,_,TPath(tp),_): // All relationships are properties
+						
+						// Extract the type
+						var className = getRelatedModelTypeFromField(f);
+						var foreignKey = getRelationKeyForField(f);
+						switch (tp)
+						{
+							case { name: "BelongsTo", params:_, pack:_, sub:_ }
+							   | { name: "Null", params:[TPType(TPath({ name: "BelongsTo", params:_, pack:_, sub:_ }))], pack:_, sub:_ }: 
+								relationFields.push('${f.name},BelongsTo,$className');
+							case { name: "HasOne", params:_, pack:_, sub:_ }: 
+								relationFields.push('${f.name},HasOne,$className,$foreignKey');
+							case { name: "HasMany", params:_, pack:_, sub:_ }: 
+								relationFields.push('${f.name},HasMany,$className,$foreignKey');
+							case { name: "ManyToMany", params:_, pack:_, sub:_ }: 
+								relationFields.push('${f.name},ManyToMany,$className');
+								serializeFields.push("ManyToMany" + f.name);
+							default: 
+						}
+					case _: 
+				}
+			}
+			
+			// Check for fields in any super classes too...
+			var currentClass = Context.getLocalClass().get();
+			while (currentClass.superClass != null)
+			{
+				var s = currentClass.superClass.t.get();
+				for (f in s.fields.get())
+				{
+					// trace (f.type);
+					var className = getRelatedModelTypeFromField(f);
+					var foreignKey = getRelationKeyForField(f);
+						
+					switch (f)
+					{
+						case { kind: FVar(AccNormal, AccNormal) } if (!f.meta.has(":skip")):
+							// Any database fields are vars
+							serializeFields.push(f.name); 
+						case { kind: FVar(AccCall(_),_), type: TType(t,_) }:
+							// All relationships are properties
+							if (t.get().name == "BelongsTo") relationFields.push('${f.name},BelongsTo,$className');
+							else if (t.get().name == "HasOne") relationFields.push('${f.name},HasOne,$className,$foreignKey');
+							else if (t.get().name == "HasMany") relationFields.push('${f.name},HasMany,$className,$foreignKey');
+						case { kind: FVar(AccCall(_),_), type: TInst(t,_) }:
+							if (t.get().name == "ManyToMany") 
+							{
+								relationFields.push('${f.name},ManyToMany,$className');
+								serializeFields.push("ManyToMany" + f.name);
+							}
+						default:
+					}
+				}
+				currentClass = s;
+			}
+
+			// Create a hxSerializeFields static var if it doesn't exist
+			var fieldsArray = fields.filter(function (f) return f.name == "hxSerializeFields")[0];
+			if (fieldsArray == null)
+			{
+				fieldsArray = createFieldsArray();
+				fields.push(fieldsArray);
+			}
+			switch (fieldsArray.kind)
+			{
+				case FVar(t, _):
+					serializeFields.sort(Strings.compare);
+					var serializeFieldsExpr = serializeFields.map(function (str) return Context.makeExpr(str, fieldsArray.pos));
+					var arrExpr:Expr = { expr: EArrayDecl(serializeFieldsExpr), pos: fieldsArray.pos };
+					fieldsArray.kind = FVar(t, arrExpr);
+				default:
+			}
+
+			// Create a hxSerializeFields static var if it doesn't exist
+			var relationshipsArray = fields.filter(function (f) return f.name == "hxRelationships")[0];
+			if (relationshipsArray == null)
+			{
+				relationshipsArray = createRelationshipsArray();
+				fields.push(relationshipsArray);
+			}
+			switch (relationshipsArray.kind)
+			{
+				case FVar(t, _):
+					relationFields.sort(Strings.compare);
+					var relationFieldsExpr = relationFields.map(function (str) return Context.makeExpr(str, relationshipsArray.pos));
+					var arrExpr:Expr = { expr: EArrayDecl(relationFieldsExpr), pos: relationshipsArray.pos };
+					relationshipsArray.kind = FVar(t, arrExpr);
+				default:
+			}
+
+			return fields;
+		}
+
 		static function processBelongsToRelations(fields:Array<Field>, f:Field, modelType:TypePath, allowNull:Bool)
 		{
 			// Add skip metadata to the field
 			f.meta.push({ name: ":skip", params: [], pos: f.pos });
+
+			// Add the model path to some metadata, in a later build macro this metadata will be used to populate a "relations" array
+			addMetadataForRelatedModel(f, modelType);
 
 			// Add the ID field(s)
 			// FOR NOW: fieldNameID:SId
@@ -254,17 +369,25 @@ class DBMacros
 			var getterBody:Expr;
 			var privateIdent = ("_" + f.name).resolve();
 			var idIdent = (f.name + "ID").resolve();
-			if (Context.defined("neko") || Context.defined("php") || Context.defined("cpp"))
+			var modelPath = nameFromTypePath(modelType);
+			var model = modelPath.resolve();
+			if (Context.defined("server"))
 			{
-				var modelPath = (modelType.pack.length == 0) ? modelType.name : (modelType.pack.join(".") + "." + modelType.name);
-				var model = modelPath.resolve();
 				getterBody = macro {
 						if ($privateIdent == null && $idIdent != null)
 							$privateIdent = $model.manager.get($idIdent);
 					return $privateIdent;
 				};
 			}
-			else getterBody = macro return $privateIdent;
+			else 
+			{
+				getterBody = macro {
+					if ($privateIdent == null && $idIdent != null)
+						// Should resolve synchronously if it's already in the cache
+						$model.clientDS.get($idIdent).then(function (v) $privateIdent = v);
+					return $privateIdent;
+				}
+			}
 			fields.push({
 				pos: f.pos,
 				name: "get_" + f.name,
@@ -326,6 +449,9 @@ class DBMacros
 			// Add skip metadata to the field
 			f.meta.push({ name: ":skip", params: [], pos: f.pos });
 
+			// Add the model path to some metadata, in a later build macro this metadata will be used to populate a "relations" array
+			addMetadataForRelatedModel(f, modelType);
+
 
 			// change var to property (get,null)
 			// Switch kind
@@ -357,39 +483,37 @@ class DBMacros
 			// Get the various exprs used in the getter
 
 			var ident = ("_" + f.name).resolve();
-			var relationKey = null;
-			var relationKeyMeta = getMetaFromField(f, ":relationKey");
-			if (relationKeyMeta != null)
-			{
-				var rIdent = relationKeyMeta[0];
-				switch (rIdent.expr)
-				{
-					case EConst(CIdent(r)):
-						relationKey = "$" + r;
-					case _:
-				}
-			}
-			else
-			{
-				// From "SomeClass" model get "$someClassID" name
-				var name = Context.getLocalClass().get().name;
-				relationKey = "$" + name.charAt(0).toLowerCase() + name.substr(1) + "ID";
-			}
+			var relationKey = getRelationKeyForField(f);
 
 			// create getter
 
 			var getterBody:Expr;
-			if (Context.defined("neko") || Context.defined("php") || Context.defined("cpp"))
+			var modelPath = nameFromTypePath(modelType); 
+			var model = modelPath.resolve();
+			if (Context.defined("server"))
 			{
-				var modelPath = (modelType.pack.length == 0) ? modelType.name : (modelType.pack.join(".") + "." + modelType.name);
-				var model = modelPath.resolve();
+				relationKey = "$" + relationKey;
 				getterBody = macro {
 					var s = this;
 					if ($ident == null) $ident = $model.manager.search($i{relationKey} == s.id);
 					return $ident;
 				};
 			}
-			else getterBody = macro return $ident;
+			else 
+			{
+				var criteriaObj = {
+					expr: EObjectDecl([ { field: relationKey, expr: macro s.id } ]),
+					pos: Context.currentPos()
+				}
+				getterBody = macro {
+					var s = this;
+					if ($ident == null)
+						// Should resolve synchronously if it's already in the cache...
+						$model.clientDS.search($criteriaObj).then(function (res) $ident = res);
+					return $ident;
+				}
+			}
+
 			fields.push({
 				pos: f.pos,
 				name: "get_" + f.name,
@@ -411,6 +535,9 @@ class DBMacros
 		{
 			// Add skip metadata to the field
 			f.meta.push({ name: ":skip", params: [], pos: f.pos });
+
+			// Add the model path to some metadata, in a later build macro this metadata will be used to populate a "relations" array
+			addMetadataForRelatedModel(f, modelType);
 
 			// Generate the type we want.  If it was HasMany<T>, the 
 			// generated type will be Null<T>
@@ -447,39 +574,41 @@ class DBMacros
 			// Get the various exprs used in the getter
 
 			var ident = ("_" + f.name).resolve();
-			var relationKey = null;
-			var relationKeyMeta = getMetaFromField(f, ":relationKey");
-			if (relationKeyMeta != null)
-			{
-				var rIdent = relationKeyMeta[0];
-				switch (rIdent.expr)
-				{
-					case EConst(CIdent(r)):
-						relationKey = "$" + r;
-					case _:
-				}
-			}
-			else
-			{
-				// From "SomeClass" model get "$someClassID" name
-				var name = Context.getLocalClass().get().name;
-				relationKey = "$" + name.charAt(0).toLowerCase() + name.substr(1) + "ID";
-			}
+			var relationKey = getRelationKeyForField(f);
 
 			// create getter
 
 			var getterBody:Expr;
-			if (Context.defined("neko") || Context.defined("php") || Context.defined("cpp"))
+			var modelPath = nameFromTypePath(modelType);
+			var model = modelPath.resolve();
+			if (Context.defined("server"))
 			{
-				var modelPath = (modelType.pack.length == 0) ? modelType.name : (modelType.pack.join(".") + "." + modelType.name);
-				var model = modelPath.resolve();
+				relationKey = "$" + relationKey;
+
 				getterBody = macro {
 					var s = this;
 					if ($ident == null) $ident = $model.manager.select($i{relationKey} == s.id);
 					return $ident;
 				};
 			}
-			else getterBody = macro return $ident;
+			else 
+			{
+				var criteriaObj = {
+					expr: EObjectDecl([ { field: relationKey, expr: macro s.id } ]),
+					pos: Context.currentPos()
+				}
+				getterBody = macro {
+					var s = this;
+					if ($ident == null)
+						// Should resolve synchronously if it's already in the cache...
+						$model.clientDS.search($criteriaObj).then(function (res) {
+							var i = res.iterator();
+							$ident = (i.hasNext()) ? i.next() : null;
+						});
+					return $ident;
+				}
+			}
+
 			fields.push({
 				pos: f.pos,
 				name: "get_" + f.name,
@@ -501,6 +630,9 @@ class DBMacros
 		{
 			// Add skip metadata to the field
 			f.meta.push({ name: ":skip", params: [], pos: f.pos });
+
+			// Add the model path to some metadata, in a later build macro this metadata will be used to populate a "relations" array
+			addMetadataForRelatedModel(f, modelB);
 
 
 			// change var to property (get,null)
@@ -536,16 +668,37 @@ class DBMacros
 			// create getter
 
 			var getterBody:Expr;
-			var bModelPath = (modelB.pack.length == 0) ? modelB.name : (modelB.pack.join(".") + "." + modelB.name);
-			var bModel = bModelPath.resolve();
-			getterBody = macro {
-				if ($ident == null) $ident = new ManyToMany(this, $bModel);
-				return $ident;
+			var bModelPath = nameFromTypePath(modelB);
+			var bModelIdent = bModelPath.resolve();
+			if (Context.defined("server"))
+			{
+				getterBody = macro {
+					if ($ident == null) $ident = new ManyToMany(this, $bModelIdent);
+					return $ident;
+				};
+			}
+			else
+			{
+				getterBody = macro {
+					if ($ident.bList == null)
+					{
+						$ident.bList = new List();
+						$bModelIdent.clientDS.getMany(Lambda.array($ident.bListIDs)).then(function (items) { 
+							for (i in items) $ident.bList.push(i); 
+						});
+					}
+					return $ident;
+				};
+			}
+			var accessMetadata = {
+				pos: f.pos,
+				params: [ "ufcommon.db.ManyToMany".resolve() ],
+				name: ":access"
 			};
 			fields.push({
 				pos: f.pos,
 				name: "get_" + f.name,
-				meta: [],
+				meta: [ accessMetadata ],
 				kind: FieldType.FFun({
 					ret: fieldType,
 					params: [],
@@ -559,13 +712,81 @@ class DBMacros
 			return fields;
 		}
 
-		static function getMetaFromField(f:Field, name:String)
+		static function addMetadataForRelatedModel(f:Field, model:TypePath)
 		{
-			for (metaItem in f.meta)
+			var modelPath = nameFromTypePath(model);
+			var fullName = switch (Context.getType(modelPath))
+			{
+				case TInst(t, _): t.toString();
+				case _: modelPath;
+			}
+			f.meta.push({ name: ":modelPath", params: [macro $v{fullName}], pos: f.pos });
+		}
+
+		static function getRelationKeyForField(?f:Field, ?cf:ClassField):String
+		{
+			var relationKey:String = null;
+			var relationKeyMeta = getMetaFromField(f, cf, ":relationKey");
+
+			if (relationKeyMeta != null)
+			{
+				// if there is @:relationKey("name") metadata, use that
+				var rIdent = relationKeyMeta[0];
+				switch (rIdent.expr)
+				{
+					case EConst(CIdent(r)):
+						relationKey = r;
+					case _:
+				}
+			}
+			else
+			{
+				// If not, guess at the name. From "SomeClass" model get "someClassID" name
+				var name = Context.getLocalClass().get().name;
+				relationKey = name.charAt(0).toLowerCase() + name.substr(1) + "ID";
+			}
+			return relationKey;
+		}
+
+		static function getMetaFromField(?f:Field, ?cf:ClassField, name:String)
+		{
+			var metadata:Metadata;
+			
+			if (f != null) metadata = f.meta;
+			if (cf != null) metadata = cf.meta.get();
+
+			for (metaItem in metadata)
 			{
 				if (metaItem.name == name) return metaItem.params;
 			}
 			return null;
+		}
+
+		static function nameFromTypePath(t:TypePath)
+		{
+			return (t.pack.length == 0) ? t.name : (t.pack.join(".") + "." + t.name);
+		}
+
+		static function getRelatedModelTypeFromField(?f:Field, ?cf:ClassField)
+		{
+			var metadata:Metadata;
+			
+			if (f != null) metadata = f.meta;
+			if (cf != null) metadata = cf.meta.get();
+
+			for (metaItem in metadata)
+			{
+				if (metaItem.name == ":modelPath")
+				{
+					switch (metaItem.params[0].expr)
+					{
+						case EConst(CString(path)):
+							return path;
+						default:
+					}
+				}
+			}
+			return "";
 		}
 
 		static function createManagerAndClientDs(currentType:ComplexType):Field
@@ -606,6 +827,24 @@ class DBMacros
 			var f = BuildTools.fieldsFromAnonymousType(ct)[0];
 			f.name = validateFnName;
 			return f;
+		}
+
+		static function createFieldsArray():Field 
+		{
+			var ct = macro : {
+				public static var hxSerializeFields:Array<String> = [];
+			}
+
+			return BuildTools.fieldsFromAnonymousType(ct)[0];
+		}
+
+		static function createRelationshipsArray():Field 
+		{
+			var ct = macro : {
+				public static var hxRelationships:Array<String> = [];
+			}
+
+			return BuildTools.fieldsFromAnonymousType(ct)[0];
 		}
 	#end
 }
