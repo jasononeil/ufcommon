@@ -47,13 +47,12 @@ class UFTaskController extends Controller
             }
             else throw "taskSet must be given as a GET parameter";
         }
-        catch (e:String)
+        catch (e:Dynamic)
         {
-            e = e.htmlEscape();
-            var callStack = CallStack.toString(CallStack.callStack());
+            var err = Std.string(e).htmlEscape();
             var exceptionStack = CallStack.toString(CallStack.exceptionStack());
             var output = '<h1>Error:</h1>
-            <h4>$e</h4>
+            <h4>$err</h4>
             <h5>Exception Stack:</h5>
             <pre>$exceptionStack</pre>';
             return new DetoxResult(output.parse(), UFAdminController.getLayout());
