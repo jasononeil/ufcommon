@@ -24,6 +24,8 @@ package ufcommon.remoting;
 import haxe.remoting.AsyncConnection;
 import haxe.remoting.HttpAsyncConnection;
 import ufcommon.remoting.RemotingTrace;
+import haxe.CallStack;
+using StringTools;
 
 
 /** Extension of class that allows traces to be sent.  On the server side, just make sure you 
@@ -46,6 +48,11 @@ class HttpAsyncConnectionWithTraces extends HttpAsyncConnection
 
 	// Code mostly copied from super class, but the onData() response has been modified to output traces
 	override public function call( params : Array<Dynamic>, ?onResult : Dynamic -> Void ) {
+
+		// Track the call-stack in case there's an error
+		var callStack = CallStack.callStack();
+
+		// Set up the remoting call
 		var h = new haxe.Http(__data.url);
 		#if (neko && no_remoting_shutdown)
 			h.noShutdown = true;
@@ -55,6 +62,8 @@ class HttpAsyncConnectionWithTraces extends HttpAsyncConnection
 		s.serialize(params);
 		h.setHeader("X-Haxe-Remoting","1");
 		h.setParameter("__x",s.toString());
+
+		// Set up the remoting data/error callbacks
 		var error = __data.error;
 		h.onData = function( response : String ) {
 			var ok = true;
@@ -86,7 +95,9 @@ class HttpAsyncConnectionWithTraces extends HttpAsyncConnection
 					}
 				}
 				if (hxrFound == false) throw "Invalid response, no hxr remoting line was found: " + response;
-			} catch( err : Dynamic ) {
+			} 
+			catch( err : Dynamic ) 
+			{
 
 				// Pass the error to the error handler
 				ok = false;
@@ -94,9 +105,30 @@ class HttpAsyncConnectionWithTraces extends HttpAsyncConnection
 
 				error({ err: err, stack: stack });
 			}
-			if( ok && onResult != null ) onResult(ret);
+
+			if( ok && onResult != null )
+			{
+				try
+				{
+					onResult(ret);
+				}
+				catch (e:Dynamic)
+				{
+					trace ("We caught an error in the client code triggered by a remoting callback...");
+					trace ('  Error: $e');
+
+					#if (js && debug)
+						var cs = CallStack.toString(callStack);
+						trace ('  CallStack: $cs');
+						trace ("  Launching Debugger...");
+						js.Lib.debug();
+					#end 
+				}
+			}
 		};
 		h.onError = error;
+
+		// Run the request
 		h.request(true);
 	}
 
