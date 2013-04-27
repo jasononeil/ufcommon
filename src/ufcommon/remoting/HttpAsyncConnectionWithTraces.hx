@@ -73,7 +73,7 @@ class HttpAsyncConnectionWithTraces extends HttpAsyncConnection
 						case "hxt":
 							var s = new haxe.Unserializer(line.substr(3));
 							var t:RemotingTrace = s.unserialize();
-							trace(t.v, t.p);
+							haxe.Log.trace(t.v, t.p);
 						case "hxs":
 							var s = new haxe.Unserializer(line.substr(3));
 							stack = s.unserialize();
@@ -97,7 +97,6 @@ class HttpAsyncConnectionWithTraces extends HttpAsyncConnection
 			if( ok && onResult != null ) onResult(ret);
 		};
 		h.onError = error;
-		trace ('Send HTTP ${Date.now()}');
 		h.request(true);
 	}
 
