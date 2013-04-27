@@ -19,11 +19,11 @@ class ClientDsApi implements RemotingApiClass
 {
 	public function new() {}
 
-	public function get(req:ClientDsRequest):Outcome<ClientDsResultSet, String>
+	public function get(req:ClientDsRequest, fetchRel:Bool):Outcome<ClientDsResultSet, String>
 	{
 		try 
 		{
-			var rs = doGet(req);
+			var rs = doGet(req, false, fetchRel);
 			return rs.asSuccess();
 		}
 		catch (e:String)
@@ -123,11 +123,11 @@ class ClientDsApi implements RemotingApiClass
 			return retMap;
 	}
 
-	function doGet(req:ClientDsRequest, ?resultSet:ClientDsResultSet, ?originalRequest=true):ClientDsResultSet
+	@:access(sys.db.Manager)
+	function doGet(req:ClientDsRequest, ?resultSet:ClientDsResultSet, ?originalRequest=true, ?fetchRel:Bool):ClientDsResultSet
 	{
 		if (resultSet == null) resultSet = new ClientDsResultSet();
 
-		var relationsToGet = new ClientDsRequest();
 		var map = req.requests;
 
 		for (name in map.keys())
@@ -143,167 +143,145 @@ class ClientDsApi implements RemotingApiClass
 			{
 				allList = manager.all();
 				var intMap = resultSet.addAll(name, allList);
-				if (requests.allRel) 
-					relationsToGet = findRelations(model,intMap,resultSet,relationsToGet);
 			}
 
 			// Do searches next, as these will likely have the most matches.  Again, cache as much as possible.
 
 			for (s in requests.search)
 			{
-				var criteria = s.c;
-				var getRel = s.r;
-				var intMap:IntMap<Object> = null;
-
-				if (requests.all)
-				{
-					// If there was an all request, the results will already be in our resultSet.
-					// and ClientDS on the client will be smart enough to just filter.  So no need
-					// to run resultSet.addSearchResults(name, criteria, list)
-
-					// Only fetch relations for this search if we want them and the all request didn't get them
-					if (getRel && !requests.allRel)
-					{
-						// Create the list so we can fetch relations
-						intMap = ClientDsUtil.filterByCriteria(allList, criteria);
-					}
-					else getRel = false;
-				}
-				else 
+				var criteria = s;
+				if (!requests.all)
 				{
 					// Else, make a new request
 					var list = manager.dynamicSearch(criteria);
-					intMap = resultSet.addSearchResults(name, criteria, list);
+					resultSet.addSearchResults(name, criteria, list);
 				}
-				if (getRel) relationsToGet = findRelations(model,intMap,resultSet,relationsToGet);
+				// else 
+					// If there was an all request, the results will already be in our resultSet.
+					// and ClientDS on the client will be smart enough to just filter.  So no need
+					// to run resultSet.addSearchResults(name, criteria, list)
 			}
-
-			// Build list of IDs from getMany and get, separated by which ones are fetching relations.
-			// Leave out any that are already cached
-			var getWithRel = [];
-			var getWithoutRel = [];
-
-			for (g in requests.get)
-			{
-				var arr = (g.r) ? getWithRel : getWithoutRel;
-				if (!resultSet.hasGetRequest(name, g.id)) arr.push(g.id);
-			} 
-			for (g in requests.getMany)
-			{
-				var arr = (g.r) ? getWithRel : getWithoutRel;
-				for (id in g.ids)
-				{
-					if (!resultSet.hasGetRequest(name, id)) arr.push(id);
-				}
-			} 
 			
 			// Create a request for the remainder (only if length of list > 0)
-			var tableName = Manager.quoteAny(untyped manager.table_name);
-			if (getWithRel.length > 0)
+			var tableName = manager.table_name;
+			var ids = requests.get.filter(function (id) return (!resultSet.hasGetRequest(name, id)));
+			
+			if (ids.length > 0)
 			{
-				var list = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + Manager.quoteList("id", getWithRel), false);
-				var intMap = resultSet.addItems(name, list);
-				relationsToGet = findRelations(model,intMap,resultSet,relationsToGet);
-			}
-			if (getWithoutRel.length > 0)
-			{
-				var list = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + Manager.quoteList("id", getWithoutRel), false);
+				var list = manager.unsafeObjects("SELECT * FROM `" + tableName + "` WHERE " + Manager.quoteList("id", ids), false);
 				resultSet.addItems(name, list);
 			}
 		}
-		
-		// If there are relationships to fetch... get them now
-		if (relationsToGet.empty == false)
+
+		// Do all relationship searching after first pass
+		if (fetchRel)
 		{
-			doGet(relationsToGet, resultSet, false);
+			var relationsToGet = findRelations(resultSet);
+			
+			// If there are relationships to fetch... get them now
+			if (relationsToGet.empty == false)
+			{
+				// Trace the extra relations we're fetching
+				#if debug
+					trace ('ClientDS fetching extra relations (RS has ${resultSet.length}): \n${relationsToGet.toString()}');
+				#end
+				doGet(relationsToGet, resultSet, false, fetchRel);
+			}
 		}
 
 		return resultSet;
 	}
 
 	@:access(ufcommon.db.ManyToMany)
-	function findRelations(model:Class<Object>, l:IntMap<Object>, rs:ClientDsResultSet, req:ClientDsRequest)
+	function findRelations(rs:ClientDsResultSet):ClientDsRequest
 	{
-		var relationshipStrings:Array<String> = Reflect.field(model, "hxRelationships");
-		// relationshipStrings = [ propertyName, relationType, relatedModel, ?relationKey ]
-
-		if (relationshipStrings.length > 0)
+		var req = new ClientDsRequest();
+		for (model in rs.models())
 		{
-			var relationships:Array<{property:String,relType:String,model:Class<Object>,foreignKey:Null<String>}> = [];
-			for (s in relationshipStrings)
+			var l:IntMap<Object> = rs.items(model);
+
+			var relationshipStrings:Array<String> = Reflect.field(model, "hxRelationships");
+			// relationshipStrings = [ propertyName, relationType, relatedModel, ?relationKey ]
+
+			if (relationshipStrings.length > 0)
 			{
-				var parts = s.split(",");
-				var foreignModelName = parts[2];
-				var r = {
-					property: parts[0],
-					relType: parts[1],
-					model: cast Type.resolveClass(foreignModelName),
-					foreignKey: (parts.length > 3) ? parts[3] : null
-				};
-				relationships.push(r);
-
-				// We'll process all of the ManyToMany joins now, rather than in the loop below.  Should be more efficient.
-				if (r.relType == "ManyToMany")
+				var relationships:Array<{property:String,relType:String,model:Class<Object>,foreignKey:Null<String>}> = [];
+				for (s in relationshipStrings)
 				{
-					// If this model doesn't have an "all" request, fetch individual IDs to find joins for.  
-					// Otherwise we'll get the whole join table
-					var joins:IntMap<List<Int>> = null;
-					if (rs.hasAllRequest(Type.getClassName(model)) == false)
-					{
-						var ids = l.map(function (obj) return obj.id);
-						joins = ManyToMany.relatedIDsforObjects(model,r.model,ids);
-					}
-					else 
-					{
-						joins = ManyToMany.relatedIDsforObjects(model,r.model);
-					}
+					var parts = s.split(",");
+					var foreignModelName = parts[2];
+					var r = {
+						property: parts[0],
+						relType: parts[1],
+						model: cast Type.resolveClass(foreignModelName),
+						foreignKey: (parts.length > 3) ? parts[3] : null
+					};
+					relationships.push(r);
 
-					for (aID in joins.keys())
+					// We'll process all of the ManyToMany joins now, rather than in the loop below.  Should be more efficient.
+					if (r.relType == "ManyToMany")
 					{
-						// If aID is in our original list
-						if (l.exists(aID))
+						// If this model doesn't have an "all" request, fetch individual IDs to find joins for.  
+						// Otherwise we'll get the whole join table
+						var joins:IntMap<List<Int>> = null;
+						if (rs.hasAllRequest(Type.getClassName(model)) == false)
 						{
-							// Add the items to the result set
-							var list = joins.get(aID);
-							for (bID in list) addGetToRequestIfNotInResultSet(rs, req, r.model, bID);
+							var ids = l.map(function (obj) return obj.id);
+							joins = ManyToMany.relatedIDsforObjects(model,r.model,ids);
+						}
+						else 
+						{
+							joins = ManyToMany.relatedIDsforObjects(model,r.model);
+						}
 
-							// Let's take the time to initiate the private ManyToMany variable
-							var o = l.get(aID);
-							var m2m = new ManyToMany(o, r.model, false);
-							m2m.bListIDs = list;
-							Reflect.setField(o, "_"+r.property, m2m);
+						for (aID in joins.keys())
+						{
+							// If aID is in our original list
+							if (l.exists(aID))
+							{
+								// Add the items to the result set
+								var list = joins.get(aID);
+								for (bID in list) addGetToRequestIfNotInResultSet(rs, req, r.model, bID);
+
+								// Let's take the time to initiate the private ManyToMany variable
+								var o = l.get(aID);
+								var m2m = new ManyToMany(o, r.model, false);
+								m2m.bListIDs = list;
+								Reflect.setField(o, "_"+r.property, m2m);
+							}
+						}
+					}
+				}
+
+				// This whole thing could probably be optimised a lot more.  I don't know how many calls to ManyToMany.isABeforeB() etc are being made
+				for (obj in l)
+				{
+					for (r in relationships)
+					{
+						switch (r.relType)
+						{
+							case "BelongsTo":
+								addGetToRequestIfNotInResultSet(rs, req, r.model, Reflect.field(obj, r.property));
+							case "HasMany" | "HasOne":
+								var criteria = {};
+								Reflect.setField(criteria, r.foreignKey, obj.id);
+								addSearchToRequestIfNotInResultSet(rs, req, r.model, criteria);
+							case "ManyToMany":
+								// We added these relationships above, outside of this loop
+							default:
 						}
 					}
 				}
 			}
-
-			// This whole thing could probably be optimised a lot more.  I don't know how many calls to ManyToMany.isABeforeB() etc are being made
-			for (obj in l)
-			{
-				for (r in relationships)
-				{
-					switch (r.relType)
-					{
-						case "BelongsTo":
-							addGetToRequestIfNotInResultSet(rs, req, r.model, Reflect.field(obj, r.property));
-						case "HasMany" | "HasOne":
-							var criteria = {};
-							Reflect.setField(criteria, r.foreignKey, obj.id);
-							addSearchToRequestIfNotInResultSet(rs, req, r.model, criteria);
-						case "ManyToMany":
-							// We added these relationships above, outside of this loop
-						default:
-					}
-				}
-			}
 		}
+
 		return req;
 	}
 
 	function addGetToRequestIfNotInResultSet(rs:ClientDsResultSet, req:ClientDsRequest, model:Class<Object>, id, ?fetchRelations):ClientDsRequest
 	{
 		if (!rs.hasGetRequest(Type.getClassName(model), id))
-			req.get(model, id, fetchRelations);
+			req.get(model, id);
 
 		return req;
 	}
@@ -311,7 +289,7 @@ class ClientDsApi implements RemotingApiClass
 	function addSearchToRequestIfNotInResultSet(rs:ClientDsResultSet, req:ClientDsRequest, model:Class<Object>, criteria, ?fetchRelations):ClientDsRequest
 	{
 		if (!rs.hasSearchRequest(Type.getClassName(model), criteria))
-			req.search(model, criteria, fetchRelations);
+			req.search(model, criteria);
 
 		return req;
 	}

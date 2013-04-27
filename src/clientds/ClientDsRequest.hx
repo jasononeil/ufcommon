@@ -2,64 +2,70 @@ package clientds;
 
 import ufcommon.db.Object;
 import sys.db.Types;
+using Lambda;
 
 class ClientDsRequest
 {
 	public var requests:Map<String, RequestsForModel>;
-	public var empty = true;
+	public var empty:Bool;
 	
 	public function new() 
 	{
+		empty = true;
 		requests = new Map();
 	}
 
-	public function get(model:Class<Object>, id:SUId, ?fetchRelations=true) 
+	public function get(model:Class<Object>, id:SUId) 
 	{
 		if (id != null)
 		{
-			empty = true;
+			empty = false;
 			var r = getModelRequests(model);
-			r.get.push({ id:id, r:fetchRelations });
+			if (r.get.indexOf(id) == -1) r.get.push(id);
+			else ('Do not need to add $id because it is already in there');
 		}
 		return this;
 	}
 
-	public function getMany(model:Class<Object>, ids:Array<SUId>, ?fetchRelations=true) 
+	public function getMany(model:Class<Object>, ids:Array<SUId>) 
 	{
-		if (ids != null)
+		if (ids != null && ids.length > 0)
 		{
-			empty = true;
+			empty = false;
 			var r = getModelRequests(model);
-			r.getMany.push({ ids:ids, r:fetchRelations });
+			for (id in ids)
+			{
+				if (r.get.indexOf(id) == -1) r.get.push(id);
+				else ('Do not need to add $id because it is already in there');
+			}
 		}
 		return this;
 	}
 
-	public function search(model:Class<Object>, criteria:{}, ?fetchRelations=true) 
+	public function search(model:Class<Object>, criteria:{}) 
 	{
 		if (criteria != null)
 		{
-			empty = true;
+			empty = false;
 			var r = getModelRequests(model);
-			r.search.push({ c:criteria, r:fetchRelations });
+			r.search.push(criteria);
 		}
 		return this;
 	}
 
-	public function all(model:Class<Object>, ?fetchRelations=true) 
+	public function all(model:Class<Object>) 
 	{
-		empty = true;
+		empty = false;
 		var r = getModelRequests(model);
 		r.all = true;
-		r.allRel = fetchRelations;
 		return this;
 	}
 
-	public function allModels(models:Iterable<Class<Object>>, ?fetchRelations=true) 
+	public function allModels(models:Iterable<Class<Object>>) 
 	{
 		for (model in models)
 		{
-			all(model, fetchRelations);
+			all(model);
 		}
 		return this;
 	}
@@ -73,21 +79,51 @@ class ClientDsRequest
 		{
 			var r = {
 				all: false,
-				allRel: false,
 				search: [],
-				get: [],
-				getMany: []
+				get: []
 			}
 			requests.set(name, r);
 			return r;
 		}
 	}
+
+	public function toString()
+	{
+		var sb = new StringBuf();
+		
+		if (empty) sb.add("Empty");
+		else
+		{
+			for (name in requests.keys())
+			{
+				var r = requests.get(name);
+
+				if (r.all)
+				{
+					sb.add('$name.all() \n');
+				}
+
+				if (r.search.length > 0)
+				{
+					sb.add('$name.search():\n');
+					for (s in r.search)
+					{
+						sb.add('  $s \n');
+					}
+				}
+
+				if (r.get.length > 0)
+				{
+					sb.add('$name.get(${r.get.length} total): ${r.get} \n');
+				}
+			}
+		}
+		return sb.toString();
+	}
 }
 
 typedef RequestsForModel = {
 	all:Bool,
-	allRel:Bool,
-	search:Array<{ c:{}, r:Bool }>,
-	get:Array<{ id:SUId, r:Bool }>,
-	getMany:Array<{ ids:Array<SUId>, r:Bool }>
+	search:Array<{}>,
+	get:Array<SUId>
 }

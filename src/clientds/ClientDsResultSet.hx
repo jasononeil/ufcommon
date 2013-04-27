@@ -10,12 +10,14 @@ typedef TypedObjectList<T:ufcommon.db.Object> = IntMap<T>;
 
 class ClientDsResultSet 
 {
+	public var length(default,null):Int;
 	var m:StringMap<ObjectList>; // [ modelName => [ id => object ] ]
 	var searchRequests:StringMap<Array<{}>>;
 	var allRequests:Array<String>;
 
 	public function new()
 	{
+		length = 0;
 		m = new StringMap();
 		searchRequests = new StringMap();
 		allRequests = [];
@@ -33,6 +35,7 @@ class ClientDsResultSet
 		for (i in items)
 		{
 			intMap.set(i.id, i);
+			length++;
 		}
 		return intMap;
 	}
@@ -63,9 +66,9 @@ class ClientDsResultSet
 		return all;
 	}
 
-	public function models()
+	public function models():Array<Class<Object>>
 	{
-		return [ for (n in m.keys()) Type.resolveClass(n) ];
+		return cast [ for (n in m.keys()) Type.resolveClass(n) ];
 	}
 
 	public function items<T:Object>(model:Class<T>):TypedObjectList<T>
@@ -98,6 +101,19 @@ class ClientDsResultSet
 			return cast ClientDsUtil.filterByCriteria(m.get(name), criteria);
 		}
 		return null;
+	}
+
+	public function toString():String 
+	{
+		var sb = new StringBuf();
+		sb.add('Found $length items total \n');
+		for (model in models())
+		{
+			var name = Type.getClassName(model);
+			var count = items(model).count();
+			sb.add('  $name : $count items \n');
+		}
+		return sb.toString();
 	}
 
 	// Functions so we can check if a new request has to be made

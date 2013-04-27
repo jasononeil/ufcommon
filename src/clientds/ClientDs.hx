@@ -12,7 +12,7 @@ using tink.core.types.Outcome;
 	import haxe.ds.*;
 	using Lambda;
 
-	class ClientDs<T:Object> #if !macro implements RequireApiProxy<ClientDsApi> #end
+	class ClientDs<T:Object> implements RequireApiProxy<ClientDsApi>
 	{
 		//
 		// Factory
@@ -128,54 +128,73 @@ using tink.core.types.Outcome;
 		{
 			if (api == null) throw "Please set static property 'api' before using ClientDs";
 			
-			var unfulfilledPromises = ids.array();
-			var newRequests = unfulfilledPromises.filter(function (id) return ds.exists(id) == false);
-			var existingPromises = unfulfilledPromises.filter(function (id) return ds.exists(id) == true);
-			var list = new IntMap();
-
 			// Create a promise for the overall list
 			var listProm = new Promise<IntMap<T>>();
+			var list = new IntMap();
 
-			// Create a promise for each of the new requests
-			for (id in newRequests)
+			if (ids != null && ids.length > 0)
 			{
-				ds.set(id, new Promise());
-			}
+				var unfulfilledPromises = ids.array();
+				var newRequests = [];
+				var existingPromises = [];
 
-			// As the existing promises are fulfilled, tick them off
-			var allCurrentPromises = [];
-			for (id in ids)
-			{
-				var p = ds.get(id);
-				allCurrentPromises.push(p);
-				p.then(function (obj) { 
-					// Add the object to our return list, and remove it from our list of unfulfilled promises.  
-					list.set(id, obj);
-					unfulfilledPromises.remove(id); 
-					// Once all promises are fulfilled
-					if (unfulfilledPromises.length == 0)
+
+				for (id in unfulfilledPromises)
+				{
+					if (ds.exists(id))
 					{
-						// Faith in humanity, restored
-						listProm.resolve(list);
+						existingPromises.push(id);
 					}
-				});
-			}
+					else 
+					{
+						// Create a promise for each of the new requests
+						newRequests.push(id);
+						ds.set(id, new Promise());
+					}
+				}
 
-			if (allPromise != null)
-			{
-				// If an existing call to all() has been made, wait for that
-				allPromise.then(function (all) {
-					// When that resolves, each instance will resolve, and our list as a whole should resolve...
-					// If not, it means some of the IDs did not exist. Just resolve with the list that did exist...
-					// list() will be populated as each individual one was added to the cache, so we can just add that
-					if (Promise.allSet(allCurrentPromises) == false) { listProm.resolve(list); }
-				});
+				// As the existing promises are fulfilled, tick them off
+				var allCurrentPromises = [];
+				for (id in ids)
+				{
+					var p = ds.get(id);
+					allCurrentPromises.push(p);
+					p.then(function (obj) { 
+						// Add the object to our return list, and remove it from our list of unfulfilled promises.  
+						list.set(id, obj);
+						unfulfilledPromises.remove(id); 
+						// Once all promises are fulfilled
+						if (unfulfilledPromises.length == 0)
+						{
+							// Faith in humanity, restored
+							listProm.resolve(list);
+						}
+					});
+				}
+
+				if (newRequests.length > 0)
+				{
+					if (allPromise != null)
+					{
+						// If an existing call to all() has been made, wait for that
+						allPromise.then(function (all) {
+							// When that resolves, each instance will resolve, and our list as a whole should resolve...
+							// If not, it means some of the IDs did not exist. Just resolve with the list that did exist...
+							// list() will be populated as each individual one was added to the cache, so we can just add that
+							if (Promise.allSet(allCurrentPromises) == false) { listProm.resolve(list); }
+						});
+					}
+					else
+					{
+						// Otherwise, create a new call just to retrieve these specific objects
+						var req = new ClientDsRequest().getMany(cast model, newRequests);
+						processRequest(req);
+					}
+				}
 			}
-			else
+			else 
 			{
-				// Otherwise, create a new call just to retrieve these specific objects
-				var req = new ClientDsRequest().getMany(cast model, ids);
-				processRequest(req);
+				listProm.resolve(list);
 			}
 
 			// Return the promise while we wait for everything to resolve.
@@ -361,7 +380,7 @@ using tink.core.types.Outcome;
 		* @return A promise for the result set.  Is actually an Outcome, with Success containing the ClientDsResultSet,
 		*   and Failure containing the error message (String).
 		*/
-		public static function processRequest(req:ClientDsRequest):Promise<Outcome<StringMap<IntMap<Object>>, String>> 
+		public static function processRequest(req:ClientDsRequest, ?fetchRel=false):Promise<Outcome<StringMap<IntMap<Object>>, String>> 
 		{
 			if (api == null) throw "Please set static property 'api' before using ClientDs";
 
@@ -383,46 +402,49 @@ using tink.core.types.Outcome;
 				// Create / recreate promises for any search requests
 				for (s in r.search)
 				{
-					var criteriaStr = haxe.Json.stringify(s.c);
+					var criteriaStr = haxe.Json.stringify(s);
 					var p = clientDs.searchPromises.get(criteriaStr);
 					if (p == null || Promise.allSet([p]))
 						clientDs.searchPromises.set(criteriaStr, new Promise());
 				}
 				
 				// Create / recreate promises for any get requests
-				for (g in r.get)
+				for (id in r.get)
 				{
-					var p = clientDs.ds.get(g.id);
+					var p = clientDs.ds.get(id);
 					if (p == null || Promise.allSet([p]))
-						clientDs.ds.set(g.id, new Promise());
+						clientDs.ds.set(id, new Promise());
 				}
 
-				// Create / recreate promises for any getMany requests
-				// We don't create a separate promise for the getMany request itself.
+				// We don't create a separate promise for the getMany requests... 
 				// If myClientDs.getMany() is called, it will check against the individual
 				// ids, rather than against them as a set. So we only need to track individuals.
-				for (g in r.getMany)
-				{
-					for (id in g.ids)
-					{
-						var p = clientDs.ds.get(id);
-						if (p == null || Promise.allSet([p]))
-							clientDs.ds.set(id, new Promise());
-					}
-				}
 			}
 			
 			// Process the request, resolve the response outcome
-			api.get(req, function (results) {
-				switch(results)
-				{
-					case Success(rs): 
-						var map = processResultSet(req, rs);
-						resultSetPromise.resolve(map.asSuccess());
-					case Failure(error): 
-						resultSetPromise.resolve(error.asFailure());
-				}
-			});
+			if (req.empty == false)
+			{
+				// Trace the request
+				#if debug
+					trace ('About to make this ClientDS API Request: \n${req.toString()}');
+				#end
+
+				// Make the API call, process the response
+				api.get(req, fetchRel, function (results) {
+					switch(results)
+					{
+						case Success(rs): 
+							var map = processResultSet(req, rs);
+							resultSetPromise.resolve(map.asSuccess());
+						case Failure(error): 
+							resultSetPromise.resolve(error.asFailure());
+					}
+				});
+			}
+			else 
+			{
+				resultSetPromise.resolve(new StringMap().asSuccess());
+			}
 			return resultSetPromise;
 		}
 
@@ -534,130 +556,6 @@ using tink.core.types.Outcome;
 			return p;
 		}
 
-		public static macro function when(args:Array<ExprOf<Promise<Dynamic>>>):Expr
-		{
-			// just using a simple pos for all expressions
-			var pos = args[0].pos;
-			// Dynamic Complex Type expression
-			var d = TPType("Dynamic".asComplexType());
-			// Generic Dynamic Complex Type expression
-			var p = "promhx.Promise".asComplexType([d]);
-			var ip = "Iterable".asComplexType([TPType(p)]);
-			//The unknown type for the then function, also used for the promise return
-			var ctmono = Context.typeof(macro null).toComplex(true);
-			var eargs:Expr; // the array of promises
-			var ecall:Expr; // the function call on the promises
-
-
-			// multiple argument, with iterable first argument... treat as error for now
-			if (args.length > 1 && ExprTools.is(args[0],ip)){
-				Context.error("Only a single Iterable of Promises can be passed", args[1].pos);
-			} else if (ExprTools.is(args[0],ip)){ // Iterable first argument, single argument
-				var cptypes =[Context.typeof(args[0]).toComplex(true)];
-				eargs = args[0];
-				ecall = macro {
-					var arr = [];
-					for (a in $eargs) arr.push(a._val);
-					f(arr);
-				}
-			} else { // multiple argument of non-iterables
-				for (a in args){
-					if (ExprTools.is(a,p)){
-						//the types of all the arguments (should be all Promises)
-						var types = args.map(Context.typeof);
-						//the parameters of the Promise types
-						var ptypes = types.map(function(x) switch(x){
-							case TInst(_,params): return params[0];
-							default : {
-								Context.error("Somehow, an illegal promise value was passed",pos);
-								return null;
-							}
-						});
-						var cptypes = ptypes.map(function(x) return x.toComplex(true)).array();
-						//the macro arguments expressed as an array expression.
-						eargs = {expr:EArrayDecl(args),pos:pos};
-
-						// An array of promise values
-						var epargs = args.map(function(x) {
-							return {expr:EField(x,"_val"),pos:pos}
-						}).array();
-						ecall = {expr:ECall(macro f, epargs), pos:pos}
-					} else{
-						Context.error("Arguments must all be Promise types, or a single Iterable of Promise types",a.pos);
-					}
-				}
-			}
-
-			// the returned function that actually does the runtime work.
-			return macro {
-				var parr:Array<Promise<Dynamic>> = $eargs;
-				var p = new Promise<$ctmono>();
-				{
-					then : function(f){
-						 //"then" function callback for each promise
-						var cthen = function(v:Dynamic){
-							if ( Promise.allSet(parr)){
-								try{ 
-									if ( Promise.allSet([p]) == false )
-										untyped p.resolve($ecall); 
-								}
-								catch(e:Dynamic){
-									untyped p.handleError(e);
-								}
-							}
-						}
-						if (Promise.allSet(parr)) cthen(null);
-						else for (p in parr) p.then(cthen);
-						return p;
-					}
-				}
-			}
-		}
-
-		/**
-		* This is basically the same as Promise.when(), but without the macro magic
-		* (The macro magic was conflicting with one of the API building macros used here)
-		*
-		* The key differences:
-		*  - Pass your promises in as an array, not a string of constants...
-		*  - The arguments are figured out using untyped, and called using Reflect.callMethod()
-		*  - So compile time checking is minimal.  Yeah, we should really fix this.
-		*/
-		public static function whenRuntime(promises:Array<Promise<Dynamic>>)
-		{
-			var p = new Promise<Dynamic>();
-			return {
-				then : function(f){
-					if (Type.enumEq(Type.typeof(f), TFunction))
-					{
-						 //"then" function callback for each promise
-						var cthen = function(v:Dynamic){
-							if ( Promise.allSet(promises))
-							{
-								try
-								{ 
-									if ( Promise.allSet([p]) == false )
-									{
-										var args = promises.map(function (p) return untyped p._val);
-										var result = Reflect.callMethod({}, f, args);
-										untyped p.resolve(result); 
-									}
-								}
-								catch(e:Dynamic)
-								{
-									untyped p.handleError(e);
-								}
-							}
-						}
-						if (Promise.allSet(promises)) cthen(null);
-						else for (p in promises) p.then(cthen);
-					}
-					else throw "Invalid function parsed to when()";
-					return p;
-				}
-			}
-		}
-
 		//
 		// Private members
 		//
@@ -668,6 +566,11 @@ using tink.core.types.Outcome;
 			var map = new StringMap<IntMap<Object>>();
 
 			var promisesToResolve:Array<Promise<Dynamic>> = [];
+
+			// Print the number of found objects...
+			#if debug 
+				trace ('Received these objects: ${rs.toString()}');
+			#end 
 
 			// Add all of the items in each model, resolve item promises
 			for (model in rs.models())
@@ -687,10 +590,11 @@ using tink.core.types.Outcome;
 					var id = item.id;
 
 					// Find the promise, or create it
-					var p:Promise<Dynamic> = modelDS.ds.get(id);
+					var p:Promise<Object> = modelDS.ds.get(id);
 					if (p == null || Promise.allSet([p]))
 					{
-						modelDS.ds.set(id, p = new Promise());
+						p = new Promise();
+						modelDS.ds.set(id, p);
 					}
 
 					// Set the promise value
@@ -717,7 +621,10 @@ using tink.core.types.Outcome;
 					var criteriaStr = haxe.Json.stringify(criteria);
 					var p = modelDS.searchPromises.get(criteriaStr);
 					if (p == null || Promise.allSet([p]))
-						modelDS.searchPromises.set(criteriaStr, new Promise());
+					{
+						p = new Promise();
+						modelDS.searchPromises.set(criteriaStr, p);
+					}
 					
 					// Set the promise value
 					var results = rs.searchResults(model,criteria);
