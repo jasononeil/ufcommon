@@ -32,8 +32,35 @@ class ClientDsApi implements RemotingApiClass
 		}
 	}
 
+	public function getCached(req:ClientDsRequest, fetchRel:Bool, cacheName:String):String
+	{
+		var cacheFile = neko.Web.getCwd() + "cache/" + cacheName;
+		var rsSerialised:String;
+		
+		if (sys.FileSystem.exists(cacheFile))
+		{
+			rsSerialised = sys.io.File.getContent(cacheFile);
+		}
+		else
+		{
+			var result = get(req, fetchRel);
+			rsSerialised = haxe.Serializer.run(result);
+
+			try 
+			{
+				sys.io.File.saveContent(cacheFile, rsSerialised);
+			}
+			catch (e:Dynamic) 
+			{
+				trace ("Could not write cache file for coredata: " + e);
+			}
+		}
+
+		return rsSerialised;
+	}
+
 	/** 
-	* Save some objects to the database by calling save() on each one.
+	* Save some objects to the database by calling save() on each one
 	* 
 	* @param map of objects to save: "aModelName" => [aObject1, aObject2], "bModelName" => [bObject1, bObject2]
 	* @return This returns a StringMap with the same keys as the original, and an array for each value, with the

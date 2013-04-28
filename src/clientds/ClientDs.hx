@@ -309,7 +309,7 @@ using tink.core.types.Outcome;
 						o.id = id;
 						p.resolve(o.asSuccess());
 					case Failure(msg):
-						p.resolve('Failed to delete $o: $msg'.asFailure());
+						p.resolve('Failed to save $o: $msg'.asFailure());
 				}
 			});
 			return p;
@@ -380,7 +380,7 @@ using tink.core.types.Outcome;
 		* @return A promise for the result set.  Is actually an Outcome, with Success containing the ClientDsResultSet,
 		*   and Failure containing the error message (String).
 		*/
-		public static function processRequest(req:ClientDsRequest, ?fetchRel=false):Promise<Outcome<StringMap<IntMap<Object>>, String>> 
+		public static function processRequest(req:ClientDsRequest, ?fetchRel=false, ?cacheName:String):Promise<Outcome<StringMap<IntMap<Object>>, String>> 
 		{
 			if (api == null) throw "Please set static property 'api' before using ClientDs";
 
@@ -430,16 +430,34 @@ using tink.core.types.Outcome;
 				#end
 
 				// Make the API call, process the response
-				api.get(req, fetchRel, function (results) {
-					switch(results)
-					{
-						case Success(rs): 
-							var map = processResultSet(req, rs);
-							resultSetPromise.resolve(map.asSuccess());
-						case Failure(error): 
-							resultSetPromise.resolve(error.asFailure());
-					}
-				});
+				if (cacheName == null)
+				{
+					api.get(req, fetchRel, function (results) {
+						switch(results)
+						{
+							case Success(rs): 
+								var map = processResultSet(req, rs);
+								resultSetPromise.resolve(map.asSuccess());
+							case Failure(error): 
+								resultSetPromise.resolve(error.asFailure());
+						}
+					});
+				}
+				else // a similar API call, but use the cache, so we unpack it a little differently
+				{
+					api.getCached(req, fetchRel, cacheName, function (result) {
+						var resultObj = haxe.Unserializer.run(result);
+						switch(resultObj)
+						{
+							case Success(rs): 
+								var map = processResultSet(req, rs);
+								resultSetPromise.resolve(map.asSuccess());
+							case Failure(error): 
+								resultSetPromise.resolve(error.asFailure());
+						}
+					});
+				}
+
 			}
 			else 
 			{
