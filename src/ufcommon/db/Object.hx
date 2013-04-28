@@ -123,21 +123,35 @@ class Object #if server extends sys.db.Object #end
 		public function new() 
 		{
 			validationErrors = new StringMap();
+			setupClientDs();
+		}
+
+		function setupClientDs()
+		{
 			if( _clientDS == null ) untyped _clientDS = Type.getClass(this).clientDS;
 		}
 
 		public function delete() { 
-			_clientDS.delete(this.id);
+			setupClientDs();
+			return _clientDS.delete(this.id);
 		}
 		public function save() { 
-			_clientDS.save(this);
+			setupClientDs();
+			return _clientDS.save(this);
 		}
 		public function refresh() { 
-			_clientDS.refresh(this.id);
+			setupClientDs();
+			return _clientDS.refresh(this.id);
 		}
+
 		public inline function insert() { save(); }
 		public inline function update() { save(); }
 	
+		public function toString()
+		{
+			var modelName = Type.getClassName(Type.getClass(this));
+			return '$modelName#$id';
+		}
 	#end
 
 	/** If a call to validate() fails, it will populate this map with a list of errors.  The key should
@@ -182,7 +196,10 @@ class Object #if server extends sys.db.Object #end
 		for (f in fields)
 		{
 			if (f == "modified" || f == "created")
-				s.serialize(Reflect.field(this, f).getTime());
+			{
+				var date=Reflect.field(this, f);
+				s.serialize((date!=null) ? date.getTime() : null);
+			}
 			else if (f.startsWith("ManyToMany"))
 			{
 				var m2m:ManyToMany<Dynamic,Dynamic> = Reflect.getProperty(this, "_" + f.substr(10));
@@ -222,7 +239,10 @@ class Object #if server extends sys.db.Object #end
 		for (f in fields)
 		{
 			if (f == "modified" || f == "created")
-				Reflect.setProperty(this, f, Date.fromTime(s.unserialize()));
+			{
+				var time = s.unserialize();
+				Reflect.setProperty(this, f, (time!=null) ? Date.fromTime(time) : null);
+			}
 			else if (f.startsWith("ManyToMany"))
 			{
 				var bName = s.unserialize();
