@@ -5,6 +5,7 @@ import haxe.ds.StringMap;
 
 using StringTools;
 using Lambda;
+using tink.core.types.Outcome;
 
 /** Extended Database Object
 
@@ -55,7 +56,7 @@ class Object #if server extends sys.db.Object #end
 			validationErrors = new StringMap();
 		}
 
-		/** Updates the "created" and "modified" timestamps, and then saves to the database. */
+		/** Updates the "created" and "modified" timestamps, and then saves to the database if checkAuthWrite() and validate() both pass. */
 		override public function insert()
 		{
 			if (this.checkAuthWrite())
@@ -67,14 +68,14 @@ class Object #if server extends sys.db.Object #end
 					super.insert();
 				}
 				else {
-					var errors = Lambda.array(validationErrors).join(", ");
-					throw 'Data validation failed for $this: ' + errors;
+					var errors = Lambda.array(validationErrors).join("\n");
+					throw 'Data validation failed for $this: \n' + errors;
 				}
 			}
 			else throw 'You do not have permission to save object $this';
 		}
 
-		/** Updates the "modified" timestamp, and then saves to the database. */
+		/** Updates the "modified" timestamp, and then saves to the database if checkAuthWrite() and validate() both pass. */
 		override public function update()
 		{
 			if (this.checkAuthWrite())
@@ -111,7 +112,10 @@ class Object #if server extends sys.db.Object #end
 				}
 				catch (e:Dynamic)
 				{
-					// It had an ID, but it wasn't in the DB... so insert it
+					// If it failed because of a validation error, rethrow
+					if (Std.string(e).indexOf('Data validation failed') != -1) throw e;
+
+					// Error is probably because it had an ID, but it wasn't in the DB... so insert it
 					insert();
 				}
 			}
@@ -137,7 +141,18 @@ class Object #if server extends sys.db.Object #end
 		}
 		public function save() { 
 			setupClientDs();
-			return _clientDS.save(this);
+			if (validate())
+			{
+				return _clientDS.save(this);
+			}
+			else 
+			{
+				var p = new clientds.Promise();
+				var errors = Lambda.array(validationErrors).join("\n  ");
+				var msg = 'Data validation failed for $this: \n  $errors';
+				p.resolve(msg.asFailure());
+				return p;
+			}
 		}
 		public function refresh() { 
 			setupClientDs();
@@ -171,6 +186,7 @@ class Object #if server extends sys.db.Object #end
 	*/
 	public function validate():Bool 
 	{
+		trace ("Check validation...");
 		validationErrors = new StringMap();
 		return (!validationErrors.keys().hasNext());
 	}
