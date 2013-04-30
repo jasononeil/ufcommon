@@ -85,15 +85,15 @@ class ClientDsApi implements RemotingApiClass
 							var a:Array<Outcome<SUId, String>> = [];
 							for (o in map.get(modelName))
 							{
-									try 
-									{
-											o.save();
-											a.push(o.id.asSuccess());
-									}
-									catch (e:String)
-									{
-											a.push(e.asFailure());
-									}
+								try 
+								{
+										o.save();
+										a.push(o.id.asSuccess());
+								}
+								catch (e:String)
+								{
+										a.push(e.asFailure());
+								}
 							}
 							retMap.set(modelName, a);
 					}
